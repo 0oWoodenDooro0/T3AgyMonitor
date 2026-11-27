@@ -19,8 +19,8 @@ export class StageProgressSurface {
 
     const style = this.#document.createElement('style');
     style.textContent = `
-      :host { display: block; font-family: system-ui, sans-serif; font-size: 12px; color: var(--foreground, #e4e4e7); }
-      .stage-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 8px; border-radius: 6px; background: var(--secondary, rgba(24, 24, 27, 0.75)); border: 1px solid var(--border, rgba(255, 255, 255, 0.1)); color: var(--foreground, #e4e4e7); }
+      :host { display: block; font-family: var(--font-sans, system-ui, sans-serif); font-size: 12px; color: var(--foreground); }
+      .stage-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 8px; border-radius: calc(var(--radius, 8px) - 2px); background: color-mix(in oklch, var(--secondary) 55%, transparent); border: 1px solid color-mix(in oklch, var(--border) 45%, transparent); color: var(--foreground); }
       .stage-bar[data-collapsed="true"] { display: none; }
     `;
 

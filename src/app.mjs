@@ -33,6 +33,21 @@ async function readTranscriptEvents(transcriptPath, logger) {
   }
 }
 
+function formatSubagentLabel(sub, index) {
+  const candidates = [sub?.title, sub?.label];
+  for (const raw of candidates) {
+    if (typeof raw !== 'string') {
+      continue;
+    }
+    const trimmed = raw.trim();
+    if (!trimmed || /^(?:node|thread|provider-thread):/i.test(trimmed)) {
+      continue;
+    }
+    return trimmed.length > 42 ? `${trimmed.slice(0, 41)}…` : trimmed;
+  }
+  return `Subagent #${index + 1}`;
+}
+
 function computeStepDurations(events) {
   const durations = [];
   for (let i = 1; i < events.length; i += 1) {
@@ -122,6 +137,7 @@ export function createApp({
       },
     };
 
+    let subIndex = 0;
     for (const sub of threadSnapshot?.subagents ?? []) {
       const subTranscriptPath =
         sub.transcriptPath ?? (await stateReader.resolveTranscriptPath(sub.conversationId));
@@ -131,9 +147,10 @@ export function createApp({
       const subId = sub.subagent_id ?? sub.child_thread_id ?? sub.conversationId;
       if (subId) {
         contextBreakdowns[subId] = {
-          label: `${sub.origin ?? 'subagent'} (${subId})`,
+          label: formatSubagentLabel(sub, subIndex),
           ...computeContextBreakdown(subEvents),
         };
+        subIndex += 1;
       }
     }
 

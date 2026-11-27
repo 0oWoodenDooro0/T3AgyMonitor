@@ -130,15 +130,30 @@ export class T3StateReader {
     const queue = [{ threadId: rootThreadId, depth: 1 }];
     const collected = [];
 
-    const stmt = db.prepare(`
-      SELECT subagent_id, thread_id, run_id, parent_node_id, provider,
-             provider_thread_id, child_thread_id, origin, status,
-             started_at, completed_at, updated_at, payload_json, driver,
-             completion_delivery_state
-      FROM orchestration_v2_projection_subagents
-      WHERE thread_id = ?
-      ORDER BY started_at ASC, subagent_id ASC
-    `);
+    const hasV2Threads = hasTable(db, 'orchestration_v2_projection_threads');
+    const stmt = hasV2Threads
+      ? db.prepare(`
+          SELECT s.subagent_id, s.thread_id, s.run_id, s.parent_node_id, s.provider,
+                 s.provider_thread_id, s.child_thread_id, s.origin, s.status,
+                 s.started_at, s.completed_at, s.updated_at, s.payload_json, s.driver,
+                 s.completion_delivery_state,
+                 ct.title AS child_title
+          FROM orchestration_v2_projection_subagents s
+          LEFT JOIN orchestration_v2_projection_threads ct
+            ON ct.thread_id = s.child_thread_id AND ct.deleted_at IS NULL
+          WHERE s.thread_id = ?
+          ORDER BY s.started_at ASC, s.subagent_id ASC
+        `)
+      : db.prepare(`
+          SELECT subagent_id, thread_id, run_id, parent_node_id, provider,
+                 provider_thread_id, child_thread_id, origin, status,
+                 started_at, completed_at, updated_at, payload_json, driver,
+                 completion_delivery_state,
+                 NULL AS child_title
+          FROM orchestration_v2_projection_subagents
+          WHERE thread_id = ?
+          ORDER BY started_at ASC, subagent_id ASC
+        `);
 
     const hasProviderThreads = hasTable(db, 'orchestration_v2_projection_provider_threads');
     const providerThreadStmt = hasProviderThreads
@@ -162,8 +177,14 @@ export class T3StateReader {
               .map((pt) => extractProviderConversationId(pt.provider_thread_id, pt.payload_json))
               .find(Boolean) ?? null;
         }
+        const payload = parseJsonSafe(row.payload_json);
+        const title =
+          (typeof payload?.title === 'string' && payload.title.trim()) ||
+          (typeof row.child_title === 'string' && row.child_title.trim()) ||
+          null;
         collected.push({
           ...row,
+          title,
           depth,
           conversationId,
         });

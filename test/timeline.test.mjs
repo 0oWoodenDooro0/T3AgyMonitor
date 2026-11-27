@@ -425,3 +425,78 @@ test('computeStageProgress aggregates consecutive tool calls in active turn and 
   assert.equal(thinkingStage.toolCount, 0);
   assert.equal(thinkingStage.elapsedMs, 1500);
 });
+
+test('buildUnifiedTimeline keeps Main Agent in availableAgents when filtered to subagent, uses clean subagent titles, and strips instruction wrappers from step summaries', () => {
+  const result = buildUnifiedTimeline({
+    agentId: 'sub-raw',
+    mainThread: {
+      threadId: 'thread-main',
+      title: 'Long Thread Title That Should Not Replace Main Agent',
+      events: [
+        {
+          type: 'USER_INPUT',
+          created_at: '2026-11-27T10:00:00.000Z',
+          content:
+            'Created At: 2026-11-27T10:00:00Z\nCompleted At: 2026-11-27T10:00:05Z\n<t3_code_instructions>Internal instructions here</t3_code_instructions>\n<USER_REQUEST>\nFix the timeline agent filter\n</USER_REQUEST>',
+        },
+      ],
+    },
+    subagents: [
+      {
+        subagent_id: 'sub-titled',
+        thread_id: 'thread-main',
+        title: 'Investigate SQLite projection schema and subagent titles',
+        status: 'completed',
+        events: [
+          {
+            type: 'PLANNER_RESPONSE',
+            created_at: '2026-11-27T10:00:02.000Z',
+            content: 'Checked schema',
+          },
+        ],
+      },
+      {
+        subagent_id: 'sub-raw',
+        thread_id: 'thread-main',
+        label: 'node:delegated-task:command%3Amcp%3At3-code%3Adelegate_task',
+        status: 'completed',
+        events: [
+          {
+            type: 'PLANNER_RESPONSE',
+            created_at: '2026-11-27T10:00:03.000Z',
+            content: 'Completed work',
+          },
+        ],
+      },
+    ],
+  });
+
+  // Main Agent stays first in availableAgents even when filtered to sub-raw
+  assert.deepEqual(
+    result.availableAgents.map((a) => ({ agentId: a.agentId, label: a.label })),
+    [
+      { agentId: 'main', label: 'Main Agent' },
+      { agentId: 'sub-titled', label: 'Investigate SQLite projection schema and …' },
+      { agentId: 'sub-raw', label: 'Subagent #2' },
+    ],
+  );
+  assert.equal(result.turns.length, 1);
+  assert.equal(result.turns[0].entries.length, 1);
+  assert.equal(result.turns[0].entries[0].agentId, 'sub-raw');
+
+  // Unfiltered timeline cleans instruction wrappers from step summary
+  const unfiltered = buildUnifiedTimeline({
+    mainThread: {
+      threadId: 'thread-main',
+      events: [
+        {
+          type: 'USER_INPUT',
+          created_at: '2026-11-27T10:00:00.000Z',
+          content:
+            'Created At: 2026-11-27T10:00:00Z\nCompleted At: 2026-11-27T10:00:05Z\n<t3_code_instructions>Internal instructions here</t3_code_instructions>\n<USER_REQUEST>\nFix the timeline agent filter\n</USER_REQUEST>',
+        },
+      ],
+    },
+  });
+  assert.equal(unfiltered.turns[0].entries[0].summary, 'Fix the timeline agent filter');
+});

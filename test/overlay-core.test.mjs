@@ -446,6 +446,21 @@ test('StatusCapsuleSurface clamps slots [1, 5], toggles hover/popover, renders u
   const renderedSlots = shadowRoot.querySelectorAll('[data-role="capsule-slot"]');
   assert.equal(renderedSlots.length, 5);
 
+  // Only the 5 active slots are shown in Settings, and Ring Mode / Soft Budget are removed
+  const slotToggles = shadowRoot.querySelectorAll('[data-role="slot-toggle"]');
+  assert.deepEqual(
+    slotToggles.map((btn) => btn.getAttribute('data-slot')),
+    ['model', 'context', 'cost', 'speed', 'cache'],
+  );
+  assert.equal(shadowRoot.querySelector('[data-role="ring-mode-select"]'), null);
+  assert.equal(shadowRoot.querySelector('[data-role="soft-budget-input"]'), null);
+
+  // Context Used KPI card replaces TTFT
+  const kpiGrid = shadowRoot.querySelector('[data-role="kpi-grid"]');
+  assert.match(kpiGrid.textContent, /Context Used/);
+  assert.match(kpiGrid.textContent, /42\.0%/);
+  assert.doesNotMatch(kpiGrid.textContent, /TTFT/);
+
   // Hover summary
   const bar = shadowRoot.querySelector('[data-role="capsule-bar"]');
   const hoverSummary = shadowRoot.querySelector('[data-role="hover-summary"]');

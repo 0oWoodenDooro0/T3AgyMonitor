@@ -29,21 +29,52 @@ function isMainTurnBoundary(event) {
   return true;
 }
 
+function cleanSummaryText(raw) {
+  if (typeof raw !== 'string') {
+    return '';
+  }
+  let text = raw;
+  text = text.replace(/<t3_code_instructions>[\s\S]*?<\/t3_code_instructions>/gi, ' ');
+  text = text.replace(/<\/?t3_code_instructions>/gi, ' ');
+  text = text.replace(/<\/?USER_REQUEST>/gi, ' ');
+  text = text.replace(/^(?:Created At|Completed At):[^\n]*$/gim, ' ');
+  text = text.replace(/\s+/g, ' ').trim();
+  return text.slice(0, 160);
+}
+
 function summarizeEvent(event) {
   if (!event) {
     return '';
   }
   if (typeof event.content === 'string' && event.content.trim().length > 0) {
-    return event.content.trim().slice(0, 160);
+    const cleaned = cleanSummaryText(event.content);
+    if (cleaned.length > 0) {
+      return cleaned;
+    }
   }
   if (Array.isArray(event.tool_calls) && event.tool_calls.length > 0) {
     const names = event.tool_calls.map((t) => t?.name ?? 'tool').join(', ');
     return `Tool calls: ${names}`;
   }
   if (event.error) {
-    return String(event.error).slice(0, 160);
+    return cleanSummaryText(String(event.error));
   }
   return event.type ?? 'EVENT';
+}
+
+function formatSubagentLabel(sub, index) {
+  const candidates = [sub?.title, sub?.label];
+  for (const raw of candidates) {
+    if (typeof raw !== 'string') {
+      continue;
+    }
+    const trimmed = raw.trim();
+    if (!trimmed || /^(?:node|thread|provider-thread):/i.test(trimmed)) {
+      continue;
+    }
+    return trimmed.length > 42 ? `${trimmed.slice(0, 41)}…` : trimmed;
+  }
+  return `Subagent #${index + 1}`;
 }
 
 function buildTurnsFromMainEvents(mainEvents, runs = []) {
@@ -242,7 +273,7 @@ export function buildUnifiedTimeline({
   const mainMeta = {
     agentId: 'main',
     agentKind: 'main',
-    agentLabel: mainThread.title ?? 'Main Agent',
+    agentLabel: 'Main Agent',
     depth: 0,
     parentAgentId: null,
   };
@@ -272,6 +303,7 @@ export function buildUnifiedTimeline({
     logger,
   );
 
+  let subIndex = 0;
   for (const sub of subagents) {
     const subId = sub.subagent_id ?? sub.agentId;
     if (!subId) {
@@ -281,10 +313,11 @@ export function buildUnifiedTimeline({
     const subMeta = {
       agentId: subId,
       agentKind: sub.origin ?? sub.kind ?? 'subagent',
-      agentLabel: sub.label ?? subId,
+      agentLabel: formatSubagentLabel(sub, subIndex),
       depth: node.depth,
       parentAgentId: node.parentAgentId,
     };
+    subIndex += 1;
 
     availableAgents.push({
       agentId: subMeta.agentId,

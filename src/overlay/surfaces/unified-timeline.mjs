@@ -64,28 +64,29 @@ export class UnifiedTimelineSurface {
 
     const style = this.#document.createElement('style');
     style.textContent = `
-      :host { display: inline-flex; align-items: center; position: relative; margin-right: 6px !important; z-index: 50; -webkit-app-region: no-drag !important; app-region: no-drag !important; font-family: system-ui, sans-serif; font-size: 12px; color: var(--foreground, #e4e4e7); flex-shrink: 0; }
-      .timeline-toggle { box-sizing: border-box; display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 999px; -webkit-app-region: no-drag; app-region: no-drag; background: rgba(255, 255, 255, 0.04); color: var(--foreground, #e4e4e7); border: 1px solid rgba(255, 255, 255, 0.09); font-size: 11px; font-variant-numeric: tabular-nums; cursor: pointer; white-space: nowrap; transition: background 120ms ease, border-color 120ms ease; }
-      .timeline-toggle:hover { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.16); }
-      .timeline-root { position: fixed; top: 48px; right: 16px; width: 460px; max-height: 70vh; overflow-y: auto; z-index: 80; pointer-events: auto; display: flex; flex-direction: column; gap: 8px; padding: 0 10px 10px; border-radius: 10px; background: var(--popover, rgba(20, 20, 23, 0.96)); color: var(--foreground, #e4e4e7); border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45); backdrop-filter: blur(10px); font-variant-numeric: tabular-nums; }
+      :host { display: inline-flex; align-items: center; position: relative; margin-right: 6px !important; z-index: 50; -webkit-app-region: no-drag !important; app-region: no-drag !important; font-family: var(--font-sans, system-ui, sans-serif); font-size: 12px; color: var(--foreground); flex-shrink: 0; }
+      .timeline-toggle { box-sizing: border-box; display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 999px; -webkit-app-region: no-drag; app-region: no-drag; background: color-mix(in oklch, var(--secondary) 55%, transparent); color: var(--foreground); border: 1px solid color-mix(in oklch, var(--border) 45%, transparent); font-size: 11px; font-family: inherit; font-variant-numeric: tabular-nums; cursor: pointer; white-space: nowrap; transition: background 120ms ease, border-color 120ms ease; }
+      .timeline-toggle:hover { background: var(--accent); border-color: var(--border); }
+      .timeline-root { position: fixed; top: 48px; right: 16px; width: 460px; max-height: 70vh; overflow-y: auto; z-index: 80; pointer-events: auto; display: flex; flex-direction: column; gap: 8px; padding: 0 10px 10px; border-radius: calc(var(--radius, 8px) + 2px); background: var(--popover); color: var(--popover-foreground, var(--foreground)); border: 1px solid color-mix(in oklch, var(--border) 45%, transparent); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4); backdrop-filter: blur(10px); font-variant-numeric: tabular-nums; }
       [data-open="false"] .timeline-root { display: none; }
-      .timeline-header { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 0 8px; background: var(--popover, rgba(20, 20, 23, 0.98)); border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
-      .timeline-title-group { display: inline-flex; align-items: center; gap: 6px; }
-      .timeline-title { font-size: 12px; font-weight: 600; }
-      .timeline-count-badge { padding: 1px 6px; border-radius: 999px; font-size: 10px; background: rgba(255, 255, 255, 0.07); color: var(--muted-foreground, rgba(228, 228, 231, 0.72)); }
+      .timeline-header { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; flex-wrap: nowrap; gap: 8px; padding: 10px 0 8px; background: var(--popover); border-bottom: 1px solid color-mix(in oklch, var(--border) 45%, transparent); }
+      .timeline-title-group { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; }
+      .timeline-title { font-size: 12px; font-weight: 600; white-space: nowrap; flex-shrink: 0; color: var(--popover-foreground, var(--foreground)); }
+      .timeline-count-badge { padding: 1px 6px; border-radius: 999px; font-size: 10px; white-space: nowrap; flex-shrink: 0; background: color-mix(in oklch, var(--secondary) 55%, transparent); color: var(--muted-foreground); }
+      .timeline-header select { min-width: 0; flex: 1; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
       .timeline-body { display: flex; gap: 10px; }
       .turn-rail { display: flex; flex-direction: column; gap: 4px; min-width: 76px; }
-      .turn-rail button[data-active="true"] { background: rgba(255, 255, 255, 0.14); border-color: rgba(255, 255, 255, 0.28); }
+      .turn-rail button[data-active="true"] { background: var(--accent); border-color: var(--border); color: var(--accent-foreground, var(--foreground)); }
       .timeline-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-      .turn-card { display: flex; flex-direction: column; gap: 4px; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; background: rgba(255, 255, 255, 0.02); padding: 6px; }
-      .turn-card-header { display: flex; align-items: center; justify-content: space-between; width: 100%; background: transparent !important; border: none !important; padding: 2px 4px !important; text-align: left; cursor: pointer; font-weight: 500; color: var(--foreground, #e4e4e7); }
+      .turn-card { display: flex; flex-direction: column; gap: 4px; border: 1px solid color-mix(in oklch, var(--border) 45%, transparent); border-radius: var(--radius, 8px); background: var(--card); padding: 6px; }
+      .turn-card-header { display: flex; align-items: center; justify-content: space-between; width: 100%; background: transparent !important; border: none !important; padding: 2px 4px !important; text-align: left; cursor: pointer; font-weight: 500; color: var(--card-foreground, var(--foreground)); font-family: inherit; }
       .turn-card-steps { display: flex; flex-direction: column; gap: 3px; }
       .turn-card[data-collapsed="true"] .turn-card-steps { display: none; }
-      .timeline-step { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 6px; padding: 3px 6px; border-radius: 6px; background: rgba(255, 255, 255, 0.03); font-size: 11px; }
-      .step-role-pill { padding: 1px 6px; border-radius: 999px; font-size: 10px; font-weight: 500; background: rgba(255, 255, 255, 0.08); color: var(--foreground, #e4e4e7); white-space: nowrap; }
-      .step-summary { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: rgba(228, 228, 231, 0.85); }
-      .step-time { font-size: 10px; color: var(--muted-foreground, rgba(228, 228, 231, 0.55)); white-space: nowrap; }
-      .timeline-root select, .timeline-root button { background: rgba(255, 255, 255, 0.06); color: var(--foreground, #e4e4e7); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 6px; padding: 2px 6px; font-size: 11px; }
+      .timeline-step { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 6px; padding: 3px 6px; border-radius: calc(var(--radius, 8px) - 2px); background: color-mix(in oklch, var(--secondary) 45%, transparent); font-size: 11px; }
+      .step-role-pill { padding: 1px 6px; border-radius: 999px; font-size: 10px; font-weight: 500; background: color-mix(in oklch, var(--secondary) 75%, transparent); color: var(--foreground); white-space: nowrap; }
+      .step-summary { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--foreground); }
+      .step-time { font-size: 10px; color: var(--muted-foreground); white-space: nowrap; }
+      .timeline-root select, .timeline-root button { background: var(--secondary); color: var(--foreground); border: 1px solid color-mix(in oklch, var(--border) 45%, transparent); border-radius: calc(var(--radius, 8px) - 2px); padding: 2px 6px; font-size: 11px; font-family: inherit; }
       [aria-hidden="true"] { display: none; }
     `;
 
@@ -201,22 +202,40 @@ export class UnifiedTimelineSurface {
     const timeline = this.#lastSnapshot.timeline ?? {};
     const turns = Array.isArray(timeline.turns) ? timeline.turns : [];
     const availableAgents = Array.isArray(timeline.availableAgents) ? timeline.availableAgents : [];
+    const mainAgent = availableAgents.find((a) => a.agentId === 'main') ?? {
+      agentId: 'main',
+      label: 'Main Agent',
+    };
+    const subAgents = availableAgents.filter((a) => a.agentId !== 'main' && a.agentId !== 'all');
+    const dropdownAgents = [
+      { agentId: 'all', label: 'All Agents' },
+      { agentId: 'main', label: mainAgent.agentLabel ?? mainAgent.label ?? 'Main Agent' },
+      ...subAgents.map((agent) => ({
+        agentId: agent.agentId,
+        label: agent.agentLabel ?? agent.label ?? agent.agentId,
+      })),
+    ];
+
+    if (!dropdownAgents.some((a) => a.agentId === this.#selectedAgentId)) {
+      this.#selectedAgentId = 'all';
+    }
 
     this.#filterEl.innerHTML = '';
-    const allOpt = this.#document.createElement('option');
-    allOpt.value = 'all';
-    allOpt.setAttribute('value', 'all');
-    allOpt.textContent = 'All Agents';
-    this.#filterEl.appendChild(allOpt);
-
-    for (const agent of availableAgents) {
+    for (const agent of dropdownAgents) {
       const opt = this.#document.createElement('option');
       opt.value = agent.agentId;
       opt.setAttribute('value', agent.agentId);
-      opt.textContent = agent.agentLabel ?? agent.label ?? agent.agentId;
+      opt.textContent = agent.label;
+      if (agent.agentId === this.#selectedAgentId) {
+        opt.selected = true;
+      }
       this.#filterEl.appendChild(opt);
     }
     this.#filterEl.value = this.#selectedAgentId;
+
+    if (this.#selectedTurnId && !turns.some((t) => t.turnId === this.#selectedTurnId)) {
+      this.#selectedTurnId = null;
+    }
 
     this.#railEl.innerHTML = '';
     for (const turn of turns) {
