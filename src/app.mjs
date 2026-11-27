@@ -307,6 +307,7 @@ export function createApp({
   });
 
   sidecar.on('connected', () => {
+    logger?.info?.(`[T3AgyMonitor] Connected to Host App on CDP port ${sidecar.port}`);
     void pushFreshSnapshot();
   });
 
@@ -322,9 +323,6 @@ export function createApp({
       await ensureInitialized();
       lastUpdateState = await updateChecker.checkOnStartup();
       await sidecar.start();
-      if (sidecar.status === 'CONNECTED') {
-        await pushFreshSnapshot();
-      }
     },
     async stop() {
       await sidecar.stop();

@@ -112,13 +112,20 @@ export function buildOverlayScript(options = {}) {
   const core = getCoreBundleSource();
   return [
     '(() => {',
+    '  const summarize = (rt, alreadyInstalled) => ({',
+    '    ok: true,',
+    '    alreadyInstalled,',
+    '    mounted: rt?.registry?.list',
+    '      ? rt.registry.list().filter((a) => a.isMounted).map((a) => a.surfaceId)',
+    '      : [],',
+    '  });',
     '  if (globalThis.__t3AgyMonitorRuntime) {',
-    '    return globalThis.__t3AgyMonitorRuntime;',
+    '    return summarize(globalThis.__t3AgyMonitorRuntime, true);',
     '  }',
     core,
     `  const runtime = __mod_index.installOverlayRuntime(${serializedOptions});`,
     '  globalThis.__t3AgyMonitorRuntime = runtime;',
-    '  return runtime;',
+    '  return summarize(runtime, false);',
     '})();',
   ].join('\n');
 }

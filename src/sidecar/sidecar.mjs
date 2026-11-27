@@ -133,6 +133,7 @@ export class Sidecar extends EventEmitter {
       const serialized = JSON.stringify(state);
       await this.#client.evaluate(
         `typeof globalThis[${JSON.stringify(this.#stateReceiver)}] === 'function' && globalThis[${JSON.stringify(this.#stateReceiver)}](${serialized})`,
+        { awaitPromise: false, returnByValue: false },
       );
       return true;
     } catch (error) {
@@ -179,7 +180,7 @@ export class Sidecar extends EventEmitter {
         ? this.#getOverlayScript()
         : '';
       if (typeof overlayScript === 'string' && overlayScript.trim().length > 0) {
-        await client.evaluate(overlayScript);
+        await client.evaluate(overlayScript, { awaitPromise: false, returnByValue: true });
       }
 
       this.#client = client;

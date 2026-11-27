@@ -84,6 +84,7 @@ export async function runCli(
     process.once('SIGTERM', shutdown);
   }
 
+  stdout.write(`[T3AgyMonitor] Watching CDP port ${options.port} (Ctrl+C to stop)...\n`);
   await app.start();
   return 0;
 }

@@ -236,14 +236,16 @@ function createMockDom() {
   class MockMutationObserver {
     #callback;
     #connected = false;
+    observeCalls = [];
 
     constructor(callback) {
       this.#callback = callback;
       observers.push(this);
     }
 
-    observe() {
+    observe(target, options) {
       this.#connected = true;
+      this.observeCalls.push({ target, options });
     }
 
     disconnect() {
@@ -278,15 +280,16 @@ function createMockDom() {
     document,
     MutationObserver: MockMutationObserver,
     MockEvent,
-    triggerMutations() {
+    observers,
+    triggerMutations(records) {
       for (const obs of observers) {
-        obs.trigger();
+        obs.trigger(records);
       }
     },
   };
 }
 
-test('AnchorAdapter mounts inside Shadow DOM using resilient selector list and re-mounts on MutationObserver', () => {
+test('AnchorAdapter mounts inside Shadow DOM using resilient selector list and re-mounts on MutationObserver', async () => {
   const dom = createMockDom();
   const warnings = [];
   const logger = { warn: (entry) => warnings.push(entry) };
@@ -321,6 +324,7 @@ test('AnchorAdapter mounts inside Shadow DOM using resilient selector list and r
   registry.register(adapter);
   registry.observe();
   dom.triggerMutations();
+  await new Promise((r) => setTimeout(r, 220));
 
   assert.equal(anchorEl.children.length, 1);
   registry.disconnect();
@@ -627,7 +631,7 @@ test('OverlayRuntime mounts pluggable surfaces, skips missing anchors, receives 
   runtime.destroy();
 });
 
-test('OverlayRuntime attaches StreamObserver MutationObserver hook and preserves live TTFT/tokPerSec across Sidecar snapshots', () => {
+test('OverlayRuntime attaches StreamObserver MutationObserver hook and preserves live TTFT/tokPerSec across Sidecar snapshots', async () => {
   const dom = createMockDom();
   const composerBar = dom.document.createElement('div');
   composerBar.setAttribute('data-testid', 'composer-bar');
@@ -648,12 +652,14 @@ test('OverlayRuntime attaches StreamObserver MutationObserver hook and preserves
   streamNode.setAttribute('data-turn-id', 'turn-live-1');
   dom.document.body.appendChild(streamNode);
   dom.triggerMutations();
+  await new Promise((r) => setTimeout(r, 120));
 
   assert.equal(runtime.streamObserver.getMetrics().isStreaming, true);
 
   // Simulate streaming text chunks arriving via DOM mutation
   streamNode.textContent = 'Hello streaming world!';
   dom.triggerMutations();
+  await new Promise((r) => setTimeout(r, 120));
   const liveMetrics = runtime.streamObserver.getMetrics();
   assert.equal(liveMetrics.source, 'live');
   assert.notEqual(liveMetrics.ttftDisplay, '—');
@@ -679,7 +685,7 @@ test('OverlayRuntime attaches StreamObserver MutationObserver hook and preserves
   runtime.destroy();
 });
 
-test('buildOverlayScript assembles a self-contained browser-executable IIFE bootstrapping all 6 surfaces', () => {
+test('buildOverlayScript assembles a self-contained browser-executable IIFE returning plain JSON summary', () => {
   const dom = createMockDom();
   for (const testId of [
     'composer-toolbar',
@@ -701,6 +707,8 @@ test('buildOverlayScript assembles a self-contained browser-executable IIFE boot
     document: dom.document,
     MutationObserver: dom.MutationObserver,
     console: { warn: () => {}, log: () => {}, error: () => {} },
+    setTimeout,
+    clearTimeout,
     Date,
     Math,
     JSON,
@@ -715,10 +723,31 @@ test('buildOverlayScript assembles a self-contained browser-executable IIFE boot
   };
   sandbox.globalThis = sandbox;
 
-  const runtime = vm.runInNewContext(script, sandbox);
+  const summary = vm.runInNewContext(script, sandbox);
+  assert.equal(summary.ok, true);
+  assert.equal(summary.alreadyInstalled, false);
+  assert.equal(summary.mounted.length, 6);
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(summary)), {
+    ok: true,
+    alreadyInstalled: false,
+    mounted: [
+      'status-capsule',
+      'composer-ring',
+      'stage-progress',
+      'context-breakdown',
+      'unified-timeline',
+      'overview-panel',
+    ],
+  });
+
+  const runtime = sandbox.__t3AgyMonitorRuntime;
   assert.ok(runtime);
   assert.equal(typeof sandbox.__t3AgyMonitorReceive, 'function');
-  assert.equal(sandbox.__t3AgyMonitorRuntime, runtime);
+
+  const secondSummary = vm.runInNewContext(script, sandbox);
+  assert.equal(secondSummary.ok, true);
+  assert.equal(secondSummary.alreadyInstalled, true);
+  assert.equal(secondSummary.mounted.length, 6);
 
   sandbox.__t3AgyMonitorReceive({
     config: { capsuleSlots: ['model', 'context'] },
@@ -737,4 +766,81 @@ test('buildOverlayScript assembles a self-contained browser-executable IIFE boot
   assert.equal(ringVal, '67');
 
   runtime.destroy();
+});
+
+test('AnchorRegistry coalesces rapid mutations and ignores mutations inside [data-t3-agy-surface]', async () => {
+  const dom = createMockDom();
+  const anchorEl = dom.document.createElement('div');
+  anchorEl.setAttribute('data-testid', 'composer-bar');
+  dom.document.body.appendChild(anchorEl);
+
+  const adapter = new AnchorAdapter({
+    surfaceId: 'status-capsule',
+    selectors: ['[data-testid="composer-bar"]'],
+    document: dom.document,
+    logger: { warn: () => {} },
+  });
+
+  let mountCount = 0;
+  const registry = new AnchorRegistry({
+    document: dom.document,
+    MutationObserver: dom.MutationObserver,
+    throttleMs: 30,
+    onMount: () => {
+      mountCount += 1;
+    },
+  });
+  registry.register(adapter);
+  registry.mountAll();
+  assert.equal(mountCount, 1);
+
+  registry.observe();
+
+  // Mutations inside [data-t3-agy-surface] should be ignored
+  const insideChild = dom.document.createElement('span');
+  adapter.host.appendChild(insideChild);
+  dom.triggerMutations([{ type: 'childList', target: insideChild }]);
+  await new Promise((r) => setTimeout(r, 50));
+  assert.equal(mountCount, 1);
+
+  // Simulate host removal + rapid burst of external mutations -> coalesced into one mountAll
+  anchorEl.removeChild(adapter.host);
+  dom.triggerMutations([{ type: 'childList', target: anchorEl }]);
+  dom.triggerMutations([{ type: 'childList', target: anchorEl }]);
+  dom.triggerMutations([{ type: 'childList', target: anchorEl }]);
+  assert.equal(mountCount, 1);
+  await new Promise((r) => setTimeout(r, 50));
+  assert.equal(mountCount, 2);
+
+  registry.disconnect();
+});
+
+test('StreamObserver passes attributeFilter: [data-streaming] and coalesces rapid mutations', async () => {
+  const dom = createMockDom();
+  const streamNode = dom.document.createElement('div');
+  streamNode.setAttribute('data-testid', 'assistant-message');
+  streamNode.setAttribute('data-streaming', 'true');
+  streamNode.setAttribute('data-turn-id', 'turn-coalesce');
+  dom.document.body.appendChild(streamNode);
+
+  const observer = new StreamObserver();
+  observer.attach({
+    document: dom.document,
+    MutationObserver: dom.MutationObserver,
+    throttleMs: 30,
+  });
+
+  assert.equal(dom.observers.length, 1);
+  assert.deepEqual(dom.observers[0].observeCalls[0].options.attributeFilter, ['data-streaming']);
+
+  streamNode.textContent = 'First chunk ';
+  dom.triggerMutations();
+  streamNode.textContent = 'First chunk second chunk';
+  dom.triggerMutations();
+  // Before throttle fires, outputTokens is still 0 from initial empty scan
+  assert.equal(observer.getMetrics().outputTokens, 0);
+
+  await new Promise((r) => setTimeout(r, 50));
+  assert.ok(observer.getMetrics().outputTokens > 0);
+  observer.detach();
 });

@@ -156,6 +156,17 @@ export class AnchorAdapter {
   }
 }
 
+function isInsideOverlaySurface(node) {
+  let cur = node;
+  while (cur) {
+    if (typeof cur.getAttribute === 'function' && cur.getAttribute('data-t3-agy-surface') !== null) {
+      return true;
+    }
+    cur = cur.parentNode ?? cur.host ?? null;
+  }
+  return false;
+}
+
 /**
  * Coordinates multiple AnchorAdapters and re-mounts detached surfaces via MutationObserver.
  */
@@ -165,15 +176,21 @@ export class AnchorRegistry {
   #MutationObserverImpl;
   #observer = null;
   #onMount;
+  #throttleMs;
+  #throttleTimer = null;
 
   constructor({
     document = globalThis.document,
     MutationObserver = globalThis.MutationObserver,
     onMount = null,
+    throttleMs = 200,
   } = {}) {
     this.#document = document;
     this.#MutationObserverImpl = MutationObserver;
     this.#onMount = onMount;
+    this.#throttleMs = Number.isFinite(Number(throttleMs))
+      ? Math.max(0, Number(throttleMs))
+      : 200;
   }
 
   register(adapter) {
@@ -206,8 +223,18 @@ export class AnchorRegistry {
     if (this.#observer || !this.#MutationObserverImpl || !this.#document?.body) {
       return;
     }
-    this.#observer = new this.#MutationObserverImpl(() => {
-      this.mountAll();
+    this.#observer = new this.#MutationObserverImpl((records = []) => {
+      const list = Array.isArray(records) ? records : [];
+      if (list.length > 0 && list.every((rec) => isInsideOverlaySurface(rec?.target))) {
+        return;
+      }
+      if (this.#throttleTimer !== null) {
+        return;
+      }
+      this.#throttleTimer = setTimeout(() => {
+        this.#throttleTimer = null;
+        this.mountAll();
+      }, this.#throttleMs);
     });
     this.#observer.observe(this.#document.body, {
       childList: true,
@@ -216,6 +243,10 @@ export class AnchorRegistry {
   }
 
   disconnect() {
+    if (this.#throttleTimer !== null) {
+      clearTimeout(this.#throttleTimer);
+      this.#throttleTimer = null;
+    }
     if (this.#observer) {
       this.#observer.disconnect();
       this.#observer = null;

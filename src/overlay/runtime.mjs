@@ -116,16 +116,6 @@ export class OverlayRuntime {
     }
 
     const results = this.#registry.mountAll();
-    for (const [surfaceId, mounted] of results.entries()) {
-      if (!mounted) continue;
-      const entry = this.#surfaces.get(surfaceId);
-      if (entry) {
-        entry.instance.mount(mounted.shadowRoot);
-        if (this.#lastSnapshot) {
-          entry.instance.update(this.#lastSnapshot);
-        }
-      }
-    }
     this.#registry.observe();
     this.#streamObserver.attach({
       document: this.#document,

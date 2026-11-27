@@ -44,11 +44,13 @@ export class StreamObserver {
   #domObserver = null;
   #activeStreamNode = null;
   #lastStreamTextLength = 0;
+  #scanTimer = null;
 
   attach({
     document = globalThis.document,
     MutationObserver = globalThis.MutationObserver,
     selectors = DEFAULT_STREAM_SELECTORS,
+    throttleMs = 100,
   } = {}) {
     this.detach();
     if (!document || typeof MutationObserver !== 'function') {
@@ -101,14 +103,28 @@ export class StreamObserver {
       return () => {};
     }
 
+    const delayMs = Number.isFinite(Number(throttleMs))
+      ? Math.max(0, Number(throttleMs))
+      : 100;
+    const scheduleScan = () => {
+      if (this.#scanTimer !== null) {
+        return;
+      }
+      this.#scanTimer = setTimeout(() => {
+        this.#scanTimer = null;
+        scan();
+      }, delayMs);
+    };
+
     const observer = new MutationObserver(() => {
-      scan();
+      scheduleScan();
     });
     observer.observe(target, {
       childList: true,
       subtree: true,
       characterData: true,
       attributes: true,
+      attributeFilter: ['data-streaming'],
     });
     this.#domObserver = observer;
     scan();
@@ -117,6 +133,10 @@ export class StreamObserver {
   }
 
   detach() {
+    if (this.#scanTimer !== null) {
+      clearTimeout(this.#scanTimer);
+      this.#scanTimer = null;
+    }
     if (this.#domObserver && typeof this.#domObserver.disconnect === 'function') {
       this.#domObserver.disconnect();
     }

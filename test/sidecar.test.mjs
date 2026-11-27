@@ -191,11 +191,15 @@ test('Sidecar attaches, injects overlay script, pushes state, and routes valid/i
   const methods = ws.sent.map((m) => m.method);
   assert.deepEqual(methods, ['Runtime.enable', 'Runtime.addBinding', 'Runtime.evaluate']);
   assert.equal(ws.sent[2].params.expression, 'window.__overlayBooted = true;');
+  assert.equal(ws.sent[2].params.awaitPromise, false);
+  assert.equal(ws.sent[2].params.returnByValue, true);
 
   const pushed = await sidecar.pushState({ activeModel: 'gemini-4', tokens: 1200 });
   assert.equal(pushed, true);
   assert.equal(ws.sent.length, 4);
   assert.equal(ws.sent[3].method, 'Runtime.evaluate');
+  assert.equal(ws.sent[3].params.awaitPromise, false);
+  assert.equal(ws.sent[3].params.returnByValue, false);
   assert.match(ws.sent[3].params.expression, /"activeModel":"gemini-4"/);
 
   // Valid command

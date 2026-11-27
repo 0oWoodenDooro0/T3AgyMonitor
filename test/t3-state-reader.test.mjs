@@ -194,3 +194,104 @@ test('T3StateReader maps thread_id to conversationId, recursive subagents (with 
     assert.equal(snapshot.checkpoints[0].checkpoint_id, 'cp-1');
   });
 });
+
+test('T3StateReader reads orchestration_v2_projection_threads and orchestration_v2_projection_provider_threads (payload_json.nativeThreadRef.nativeId)', async () => {
+  await withTempDir(async (dir) => {
+    const dbPath = path.join(dir, 'statev2.sqlite');
+    const providersDir = path.join(dir, 'providers', 'antigravity');
+    const convV2 = 'conv-v2-999';
+    const transcriptFile = path.join(
+      providersDir,
+      'acct-hash',
+      'antigravity-acp',
+      'brain',
+      convV2,
+      '.system_generated',
+      'logs',
+      'transcript.jsonl',
+    );
+    await fs.mkdir(path.dirname(transcriptFile), { recursive: true });
+    await fs.writeFile(transcriptFile, '', 'utf8');
+
+    const db = createFixtureDb(dbPath);
+    db.exec(`
+      CREATE TABLE orchestration_v2_projection_threads (
+        thread_id TEXT PRIMARY KEY,
+        project_id TEXT,
+        title TEXT,
+        default_provider TEXT,
+        runtime_mode TEXT,
+        interaction_mode TEXT,
+        active_provider_thread_id TEXT,
+        created_at TEXT,
+        updated_at TEXT,
+        archived_at TEXT,
+        deleted_at TEXT,
+        payload_json TEXT,
+        provider_instance_id TEXT,
+        fork_run_ids_json TEXT
+      );
+      CREATE TABLE orchestration_v2_projection_provider_threads (
+        provider_thread_id TEXT PRIMARY KEY,
+        thread_id TEXT,
+        owner_node_id TEXT,
+        provider TEXT,
+        provider_session_id TEXT,
+        status TEXT,
+        first_run_ordinal INTEGER,
+        last_run_ordinal INTEGER,
+        updated_at TEXT,
+        payload_json TEXT,
+        driver TEXT,
+        provider_instance_id TEXT
+      );
+    `);
+
+    db.prepare(
+      `INSERT INTO projection_projects (project_id, title, workspace_root, updated_at) VALUES (?, ?, ?, ?)`,
+    ).run('proj-v2', 'T3AgyMonitor', '/tmp/proj-v2', '2026-11-27T11:00:00Z');
+
+    const pendingProviderThreadId =
+      'provider-thread:provider:antigravity:native-thread:pending%3Arun%3Athread%3Av2-thread-1%3Aordinal%3A1';
+
+    db.prepare(
+      `INSERT INTO orchestration_v2_projection_threads (thread_id, project_id, title, default_provider, active_provider_thread_id, updated_at, payload_json) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      'v2-thread-1',
+      'proj-v2',
+      'V2 Thread',
+      'antigravity',
+      pendingProviderThreadId,
+      '2026-11-27T11:05:00Z',
+      JSON.stringify({ branch: 'main', worktreePath: '/tmp/proj-v2' }),
+    );
+
+    db.prepare(
+      `INSERT INTO orchestration_v2_projection_provider_threads (provider_thread_id, thread_id, provider, status, updated_at, payload_json) VALUES (?, ?, ?, ?, ?, ?)`,
+    ).run(
+      pendingProviderThreadId,
+      'v2-thread-1',
+      'antigravity',
+      'active',
+      '2026-11-27T11:05:00Z',
+      JSON.stringify({ nativeThreadRef: { driver: 'antigravity', nativeId: convV2 } }),
+    );
+    db.close();
+
+    const reader = new T3StateReader({ dbPath, providersDir, logger: { warn() {} } });
+    const active = reader.listActiveThreads({ limit: 10 });
+    assert.equal(active.length, 1);
+    assert.equal(active[0].thread_id, 'v2-thread-1');
+    assert.equal(active[0].branch, 'main');
+    assert.equal(active[0].project_title, 'T3AgyMonitor');
+    assert.equal(active[0].conversation_id, convV2);
+
+    const snapshot = await reader.getThreadSnapshot('v2-thread-1');
+    assert.ok(snapshot);
+    assert.equal(snapshot.thread.thread_id, 'v2-thread-1');
+    assert.equal(snapshot.thread.branch, 'main');
+    assert.equal(snapshot.session.status, 'active');
+    assert.equal(snapshot.conversationId, convV2);
+    assert.equal(snapshot.transcriptPath, transcriptFile);
+  });
+});
