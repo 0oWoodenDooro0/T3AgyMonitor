@@ -79,9 +79,10 @@ export class ComposerRingSurface {
     }
 
     const ringState = snapshot?.composerRing ?? {};
-    const mode = ringState.mode ?? snapshot?.config?.ringMode ?? 'context_window';
+    const mode = ringState.mode ?? ringState.source ?? snapshot?.config?.ringMode ?? 'context_window';
     const rawPercent =
       ringState.percent ??
+      ringState.remainingPercent ??
       snapshot?.metrics?.contextPercent ??
       0;
     const percent = clampPercent(rawPercent);

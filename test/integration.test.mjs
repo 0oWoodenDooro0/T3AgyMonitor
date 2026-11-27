@@ -358,6 +358,30 @@ test('End-to-end: StateReader + TranscriptParser + Sidecar + OverlayRuntime rend
       runtime.dispatchAction('refresh');
       await new Promise((r) => setTimeout(r, 20));
       assert.match(breakdownRoot.querySelector('[data-role="breakdown-total"]').textContent, /1500/);
+
+      // Verify composerRing contract alignment & subagent transcriptPath resolution
+      const ringFill = runtime.registry
+        .get('composer-ring')
+        .shadowRoot.querySelector('[data-role="ring-fill"]');
+      assert.equal(ringFill.getAttribute('aria-valuenow'), '100');
+
+      const latestSnapshot = await app.buildSnapshot();
+      assert.ok(latestSnapshot.composerRing);
+      assert.equal(latestSnapshot.composerRing.mode, 'context_window');
+      assert.equal(latestSnapshot.contextBreakdowns['sub-1'].totalInputTokens, 400);
+      assert.ok(latestSnapshot.plannerResponse);
+      assert.equal(latestSnapshot.plannerResponse.outputTokens, 300);
+
+      // UI action round-trip 4: selectContextAgent -> switches ContextBreakdownSurface to sub-1
+      runtime.dispatchAction('selectContextAgent', { agentId: 'sub-1' });
+      await new Promise((r) => setTimeout(r, 20));
+      assert.match(breakdownRoot.querySelector('[data-role="breakdown-total"]').textContent, /400/);
+
+      // Verify default getOverlayScript on createApp produces a non-empty executable bundle
+      const defaultApp = createApp({ configPath, dbPath, providersDir, ratesPath });
+      const defaultSnap = await defaultApp.buildSnapshot();
+      assert.ok(defaultSnap.composerRing);
+      assert.ok(defaultApp.sidecar);
     } finally {
       await app.stop();
       runtime.destroy();

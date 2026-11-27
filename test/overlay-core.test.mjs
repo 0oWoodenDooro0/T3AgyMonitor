@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import vm from 'node:vm';
 
 import {
   AnchorAdapter,
@@ -16,7 +17,7 @@ import {
 } from '../src/overlay/surfaces/composer-ring.mjs';
 import { StageProgressSurface } from '../src/overlay/surfaces/stage-progress.mjs';
 import { OverlayRuntime } from '../src/overlay/runtime.mjs';
-import { installOverlayRuntime } from '../src/overlay/index.mjs';
+import { buildOverlayScript, installOverlayRuntime } from '../src/overlay/index.mjs';
 
 /**
  * Lightweight mock DOM + Shadow DOM harness for pure Node.js testing.
@@ -622,6 +623,118 @@ test('OverlayRuntime mounts pluggable surfaces, skips missing anchors, receives 
     type: 'refresh',
     payload: { reason: 'manual' },
   });
+
+  runtime.destroy();
+});
+
+test('OverlayRuntime attaches StreamObserver MutationObserver hook and preserves live TTFT/tokPerSec across Sidecar snapshots', () => {
+  const dom = createMockDom();
+  const composerBar = dom.document.createElement('div');
+  composerBar.setAttribute('data-testid', 'composer-bar');
+  dom.document.body.appendChild(composerBar);
+
+  const globalTarget = {};
+  const runtime = installOverlayRuntime({
+    document: dom.document,
+    MutationObserver: dom.MutationObserver,
+    globalTarget,
+    logger: { warn: () => {} },
+  });
+
+  // Simulate an active streaming assistant DOM node appearing
+  const streamNode = dom.document.createElement('div');
+  streamNode.setAttribute('data-testid', 'assistant-message');
+  streamNode.setAttribute('data-streaming', 'true');
+  streamNode.setAttribute('data-turn-id', 'turn-live-1');
+  dom.document.body.appendChild(streamNode);
+  dom.triggerMutations();
+
+  assert.equal(runtime.streamObserver.getMetrics().isStreaming, true);
+
+  // Simulate streaming text chunks arriving via DOM mutation
+  streamNode.textContent = 'Hello streaming world!';
+  dom.triggerMutations();
+  const liveMetrics = runtime.streamObserver.getMetrics();
+  assert.equal(liveMetrics.source, 'live');
+  assert.notEqual(liveMetrics.ttftDisplay, '—');
+
+  // Sidecar pushes a snapshot without overwriting live TTFT, then reconciles plannerResponse
+  globalTarget.__t3AgyMonitorReceive({
+    config: { capsuleSlots: ['model', 'speed'] },
+    metrics: { model: 'gemini-4-hydrogen', tokPerSec: 12.3, tokPerSecDisplay: '12.3 tok/s' },
+    plannerResponse: { turnId: 'turn-live-1', outputTokens: 25, durationMs: 500 },
+  });
+
+  const reconciled = runtime.streamObserver.getMetrics();
+  assert.equal(reconciled.isStreaming, false);
+  assert.equal(reconciled.source, 'live');
+  assert.equal(reconciled.ttftDisplay, liveMetrics.ttftDisplay);
+  assert.equal(reconciled.tokPerSec, 50);
+
+  const capsuleText = runtime.registry
+    .get('status-capsule')
+    .shadowRoot.querySelector('[data-role="capsule-slots"]').textContent;
+  assert.match(capsuleText, /50\.0 tok\/s/);
+
+  runtime.destroy();
+});
+
+test('buildOverlayScript assembles a self-contained browser-executable IIFE bootstrapping all 6 surfaces', () => {
+  const dom = createMockDom();
+  for (const testId of [
+    'composer-toolbar',
+    'composer-input-container',
+    'turn-stage-anchor',
+    'context-breakdown-anchor',
+    'unified-timeline-anchor',
+    'overview-panel-anchor',
+  ]) {
+    const el = dom.document.createElement('div');
+    el.setAttribute('data-testid', testId);
+    dom.document.body.appendChild(el);
+  }
+
+  const script = buildOverlayScript();
+  assert.ok(typeof script === 'string' && script.length > 0);
+
+  const sandbox = {
+    document: dom.document,
+    MutationObserver: dom.MutationObserver,
+    console: { warn: () => {}, log: () => {}, error: () => {} },
+    Date,
+    Math,
+    JSON,
+    Number,
+    String,
+    Boolean,
+    Array,
+    Object,
+    Map,
+    Set,
+    Error,
+  };
+  sandbox.globalThis = sandbox;
+
+  const runtime = vm.runInNewContext(script, sandbox);
+  assert.ok(runtime);
+  assert.equal(typeof sandbox.__t3AgyMonitorReceive, 'function');
+  assert.equal(sandbox.__t3AgyMonitorRuntime, runtime);
+
+  sandbox.__t3AgyMonitorReceive({
+    config: { capsuleSlots: ['model', 'context'] },
+    metrics: { model: 'gemini-4-hydrogen', contextPercent: 33 },
+    composerRing: { mode: 'context_window', percent: 67, label: 'Context Window' },
+  });
+
+  const capsuleText = runtime.registry
+    .get('status-capsule')
+    .shadowRoot.querySelector('[data-role="capsule-slots"]').textContent;
+  assert.match(capsuleText, /gemini-4-hydrogen/);
+  const ringVal = runtime.registry
+    .get('composer-ring')
+    .shadowRoot.querySelector('[data-role="ring-fill"]')
+    .getAttribute('aria-valuenow');
+  assert.equal(ringVal, '67');
 
   runtime.destroy();
 });

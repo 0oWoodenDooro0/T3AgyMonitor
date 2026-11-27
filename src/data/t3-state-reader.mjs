@@ -176,7 +176,13 @@ export class T3StateReader {
         )
         .all(threadId);
 
-      const subagents = this.#collectRecursiveSubagents(db, threadId);
+      const rawSubagents = this.#collectRecursiveSubagents(db, threadId);
+      const subagents = await Promise.all(
+        rawSubagents.map(async (sub) => ({
+          ...sub,
+          transcriptPath: await this.resolveTranscriptPath(sub.conversationId),
+        })),
+      );
 
       const conversationId =
         extractConversationId(session?.provider_thread_id) ??

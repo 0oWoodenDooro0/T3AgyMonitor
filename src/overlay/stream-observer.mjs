@@ -1,3 +1,10 @@
+export const DEFAULT_STREAM_SELECTORS = Object.freeze([
+  '[data-testid="assistant-message"][data-streaming="true"]',
+  '[data-streaming="true"]',
+  '.assistant-message.streaming',
+  '[data-testid="streaming-response"]',
+]);
+
 function formatTtft(ttftMs) {
   if (typeof ttftMs !== 'number' || !Number.isFinite(ttftMs) || ttftMs < 0) {
     return '—';
@@ -34,6 +41,89 @@ export class StreamObserver {
   #isStreaming = false;
   #source = 'idle';
   #tokPerSec = null;
+  #domObserver = null;
+  #activeStreamNode = null;
+  #lastStreamTextLength = 0;
+
+  attach({
+    document = globalThis.document,
+    MutationObserver = globalThis.MutationObserver,
+    selectors = DEFAULT_STREAM_SELECTORS,
+  } = {}) {
+    this.detach();
+    if (!document || typeof MutationObserver !== 'function') {
+      return () => {};
+    }
+
+    const selectorList = Array.isArray(selectors) ? selectors.filter(Boolean) : [];
+    const findStreamingNode = () => {
+      if (typeof document.querySelector !== 'function') {
+        return null;
+      }
+      for (const selector of selectorList) {
+        try {
+          const found = document.querySelector(selector);
+          if (found) {
+            return found;
+          }
+        } catch {
+          // Ignore invalid CSS selectors in fallback list
+        }
+      }
+      return null;
+    };
+
+    const scan = () => {
+      const node = findStreamingNode();
+      if (!node) {
+        this.#activeStreamNode = null;
+        this.#lastStreamTextLength = 0;
+        return;
+      }
+
+      const text = typeof node.textContent === 'string' ? node.textContent : '';
+      if (node !== this.#activeStreamNode || !this.#isStreaming) {
+        this.#activeStreamNode = node;
+        this.#lastStreamTextLength = 0;
+        const turnId = node.getAttribute?.('data-turn-id') ?? node.dataset?.turnId ?? null;
+        this.startTurn({ turnId });
+      }
+
+      if (text.length > this.#lastStreamTextLength) {
+        const deltaText = text.slice(this.#lastStreamTextLength);
+        this.#lastStreamTextLength = text.length;
+        this.onChunk({ text: deltaText });
+      }
+    };
+
+    const target = document.body ?? document.documentElement;
+    if (!target) {
+      return () => {};
+    }
+
+    const observer = new MutationObserver(() => {
+      scan();
+    });
+    observer.observe(target, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+      attributes: true,
+    });
+    this.#domObserver = observer;
+    scan();
+
+    return () => this.detach();
+  }
+
+  detach() {
+    if (this.#domObserver && typeof this.#domObserver.disconnect === 'function') {
+      this.#domObserver.disconnect();
+    }
+    this.#domObserver = null;
+    this.#activeStreamNode = null;
+    this.#lastStreamTextLength = 0;
+  }
 
   startTurn({ turnId = null, nowMs = Date.now() } = {}) {
     this.#turnId = turnId;

@@ -1,5 +1,5 @@
 import { AnchorAdapter, AnchorRegistry } from './anchor-adapter.mjs';
-import { StreamObserver } from './stream-observer.mjs';
+import { DEFAULT_STREAM_SELECTORS, StreamObserver } from './stream-observer.mjs';
 
 export const DEFAULT_BINDING_NAME = '__t3AgyMonitorSend';
 export const DEFAULT_STATE_RECEIVER = '__t3AgyMonitorReceive';
@@ -11,12 +11,14 @@ export const DEFAULT_STATE_RECEIVER = '__t3AgyMonitorReceive';
  */
 export class OverlayRuntime {
   #document;
+  #MutationObserver;
   #globalTarget;
   #bindingName;
   #stateReceiver;
   #logger;
   #registry;
   #streamObserver;
+  #streamSelectors;
   #surfaces = new Map();
   #lastSnapshot = null;
 
@@ -28,14 +30,17 @@ export class OverlayRuntime {
     stateReceiver = DEFAULT_STATE_RECEIVER,
     logger = console,
     streamObserver = new StreamObserver(),
+    streamSelectors = DEFAULT_STREAM_SELECTORS,
     surfaceDefinitions = [],
   } = {}) {
     this.#document = document;
+    this.#MutationObserver = MutationObserver;
     this.#globalTarget = globalTarget;
     this.#bindingName = bindingName;
     this.#stateReceiver = stateReceiver;
     this.#logger = logger;
     this.#streamObserver = streamObserver;
+    this.#streamSelectors = streamSelectors;
 
     this.#registry = new AnchorRegistry({
       document: this.#document,
@@ -122,6 +127,11 @@ export class OverlayRuntime {
       }
     }
     this.#registry.observe();
+    this.#streamObserver.attach({
+      document: this.#document,
+      MutationObserver: this.#MutationObserver,
+      selectors: this.#streamSelectors,
+    });
     return results;
   }
 
@@ -137,15 +147,26 @@ export class OverlayRuntime {
     }
 
     const streamMetrics = this.#streamObserver.getMetrics();
+    const hasLiveStream = streamMetrics.source === 'live';
     const enrichedSnapshot = {
       ...snapshot,
       metrics: {
         ...streamMetrics,
         ...(snapshot.metrics ?? {}),
-        ttftMs: snapshot.metrics?.ttftMs ?? streamMetrics.ttftMs,
-        ttftDisplay: snapshot.metrics?.ttftDisplay ?? streamMetrics.ttftDisplay,
-        tokPerSec: snapshot.metrics?.tokPerSec ?? streamMetrics.tokPerSec,
-        tokPerSecDisplay: snapshot.metrics?.tokPerSecDisplay ?? streamMetrics.tokPerSecDisplay,
+        ttftMs: hasLiveStream
+          ? streamMetrics.ttftMs
+          : (snapshot.metrics?.ttftMs ?? streamMetrics.ttftMs),
+        ttftDisplay: hasLiveStream
+          ? streamMetrics.ttftDisplay
+          : (snapshot.metrics?.ttftDisplay ?? streamMetrics.ttftDisplay),
+        tokPerSec: hasLiveStream
+          ? (streamMetrics.tokPerSec ?? snapshot.metrics?.tokPerSec)
+          : (snapshot.metrics?.tokPerSec ?? streamMetrics.tokPerSec),
+        tokPerSecDisplay: hasLiveStream
+          ? (streamMetrics.tokPerSec !== null
+              ? streamMetrics.tokPerSecDisplay
+              : (snapshot.metrics?.tokPerSecDisplay ?? streamMetrics.tokPerSecDisplay))
+          : (snapshot.metrics?.tokPerSecDisplay ?? streamMetrics.tokPerSecDisplay),
       },
     };
 
@@ -177,6 +198,7 @@ export class OverlayRuntime {
   }
 
   destroy() {
+    this.#streamObserver.detach();
     this.#registry.unmountAll();
     for (const { instance } of this.#surfaces.values()) {
       if (typeof instance.unmount === 'function') {

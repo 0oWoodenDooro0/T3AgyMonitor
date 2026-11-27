@@ -68,8 +68,9 @@ export function installOverlayRuntime({
 }
 
 export { AnchorAdapter, AnchorRegistry, DEFAULT_SURFACE_ANCHORS } from './anchor-adapter.mjs';
-export { StreamObserver } from './stream-observer.mjs';
+export { StreamObserver, DEFAULT_STREAM_SELECTORS } from './stream-observer.mjs';
 export { OverlayRuntime, DEFAULT_BINDING_NAME, DEFAULT_STATE_RECEIVER } from './runtime.mjs';
+export { buildOverlayScript } from './bundle.mjs';
 export { StatusCapsuleSurface, clampCapsuleSlots } from './surfaces/status-capsule.mjs';
 export { ComposerRingSurface, clampPercent } from './surfaces/composer-ring.mjs';
 export { StageProgressSurface } from './surfaces/stage-progress.mjs';

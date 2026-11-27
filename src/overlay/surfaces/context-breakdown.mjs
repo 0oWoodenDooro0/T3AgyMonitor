@@ -100,6 +100,9 @@ export class ContextBreakdownSurface {
 
   update(snapshot = {}) {
     this.#lastSnapshot = snapshot ?? {};
+    if (typeof this.#lastSnapshot.selectedContextAgentId === 'string' && this.#lastSnapshot.selectedContextAgentId) {
+      this.#selectedAgentId = this.#lastSnapshot.selectedContextAgentId;
+    }
     if (!this.#shadowRoot) {
       return;
     }

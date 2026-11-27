@@ -12,6 +12,7 @@ import {
 import { collectUnifiedTimeline, computeStageProgress } from './timeline/index.mjs';
 import { UpdateChecker } from './updater/index.mjs';
 import { Sidecar } from './sidecar/index.mjs';
+import { buildOverlayScript } from './overlay/index.mjs';
 
 async function readTranscriptEvents(transcriptPath, logger) {
   if (!transcriptPath) {
@@ -64,7 +65,7 @@ export function createApp({
   ratesPath,
   currentVersion = '0.1.0',
   quotaProvider = new NullQuotaProvider(),
-  getOverlayScript = () => '',
+  getOverlayScript = () => buildOverlayScript(),
   fetchImpl = globalThis.fetch,
   WebSocketImpl = globalThis.WebSocket,
   SidecarClass = Sidecar,
@@ -78,6 +79,7 @@ export function createApp({
   let updateChecker = null;
   let lastUpdateState = { hasUpdate: false, mode: 'auto', currentVersion };
   let activeAgentFilter = 'all';
+  let activeContextAgentId = 'main';
 
   async function ensureInitialized() {
     if (!currentConfig) {
@@ -121,8 +123,10 @@ export function createApp({
     };
 
     for (const sub of threadSnapshot?.subagents ?? []) {
-      const subEvents = sub.transcriptPath
-        ? await readTranscriptEvents(sub.transcriptPath, logger)
+      const subTranscriptPath =
+        sub.transcriptPath ?? (await stateReader.resolveTranscriptPath(sub.conversationId));
+      const subEvents = subTranscriptPath
+        ? await readTranscriptEvents(subTranscriptPath, logger)
         : [];
       const subId = sub.subagent_id ?? sub.child_thread_id ?? sub.conversationId;
       if (subId) {
@@ -155,6 +159,11 @@ export function createApp({
       sessionTotalTokens: sessionCost.totalInputTokens + sessionCost.totalOutputTokens,
       quotaInfo: quotaData,
     });
+    const composerRing = {
+      ...ring,
+      mode: ring.source,
+      percent: ring.remainingPercent,
+    };
 
     const timeline = await collectUnifiedTimeline({
       threadId: targetThreadId,
@@ -179,6 +188,41 @@ export function createApp({
         ? Math.min(100, (transcriptMetrics.latestInputTokens / maxContextTokens) * 100)
         : 0;
 
+    let latestPlanner = null;
+    let latestPlannerIdx = -1;
+    for (let i = mainEvents.length - 1; i >= 0; i -= 1) {
+      if (mainEvents[i]?.type === 'PLANNER_RESPONSE') {
+        latestPlanner = mainEvents[i];
+        latestPlannerIdx = i;
+        break;
+      }
+    }
+    let plannerDurationMs = null;
+    if (latestPlanner && Number.isFinite(Number(latestPlanner.duration_ms))) {
+      plannerDurationMs = Number(latestPlanner.duration_ms);
+    } else if (
+      latestPlanner?.created_at &&
+      latestPlannerIdx > 0 &&
+      mainEvents[latestPlannerIdx - 1]?.created_at
+    ) {
+      const delta =
+        Date.parse(latestPlanner.created_at) -
+        Date.parse(mainEvents[latestPlannerIdx - 1].created_at);
+      if (Number.isFinite(delta) && delta > 0) {
+        plannerDurationMs = delta;
+      }
+    }
+    const plannerResponse = latestPlanner
+      ? {
+          turnId: latestPlanner.turn_id ?? latestTurn?.turnId ?? null,
+          outputTokens: Number.isFinite(Number(latestPlanner.output_tokens))
+            ? Number(latestPlanner.output_tokens)
+            : null,
+          durationMs: plannerDurationMs,
+          tokPerSec: transcriptMetrics.tokensPerSecond,
+        }
+      : null;
+
     return {
       threadId: targetThreadId,
       config: currentConfig,
@@ -193,13 +237,14 @@ export function createApp({
           typeof transcriptMetrics.tokensPerSecond === 'number'
             ? `${transcriptMetrics.tokensPerSecond.toFixed(1)} tok/s`
             : '—',
-        ttftDisplay: '—',
       },
       transcriptMetrics,
-      ring,
+      plannerResponse,
+      composerRing,
       stageProgress,
       contextBreakdown: mainBreakdown,
       contextBreakdowns,
+      selectedContextAgentId: activeContextAgentId,
       timeline,
       overview: {
         stepDurations: computeStepDurations(mainEvents),
@@ -251,6 +296,11 @@ export function createApp({
       },
       filterTimeline: async (command) => {
         activeAgentFilter = command?.payload?.agentId ?? 'all';
+        await pushFreshSnapshot();
+      },
+      selectContextAgent: async (command) => {
+        const agentId = command?.payload?.agentId;
+        activeContextAgentId = typeof agentId === 'string' && agentId.trim() ? agentId : 'main';
         await pushFreshSnapshot();
       },
     },
