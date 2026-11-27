@@ -12,36 +12,20 @@ export function createDefaultSurfaceDefinitions(anchors = DEFAULT_SURFACE_ANCHOR
     {
       id: 'status-capsule',
       selectors: anchors['status-capsule'] ?? DEFAULT_SURFACE_ANCHORS['status-capsule'],
-      createSurface: ({ document, dispatchAction }) =>
-        new StatusCapsuleSurface({ document, dispatchAction }),
-    },
-    {
-      id: 'composer-ring',
-      selectors: anchors['composer-ring'] ?? DEFAULT_SURFACE_ANCHORS['composer-ring'],
-      createSurface: ({ document }) => new ComposerRingSurface({ document }),
-    },
-    {
-      id: 'stage-progress',
-      selectors: anchors['stage-progress'] ?? DEFAULT_SURFACE_ANCHORS['stage-progress'],
-      createSurface: ({ document }) => new StageProgressSurface({ document }),
+      createSurface: ({ document, dispatchAction, onOpenPopover }) =>
+        new StatusCapsuleSurface({ document, dispatchAction, onOpenPopover }),
     },
     {
       id: 'context-breakdown',
       selectors: anchors['context-breakdown'] ?? DEFAULT_SURFACE_ANCHORS['context-breakdown'],
-      createSurface: ({ document, dispatchAction }) =>
-        new ContextBreakdownSurface({ document, dispatchAction }),
+      createSurface: ({ document, dispatchAction, onOpenPopover }) =>
+        new ContextBreakdownSurface({ document, dispatchAction, onOpenPopover }),
     },
     {
       id: 'unified-timeline',
       selectors: anchors['unified-timeline'] ?? DEFAULT_SURFACE_ANCHORS['unified-timeline'],
-      createSurface: ({ document, dispatchAction }) =>
-        new UnifiedTimelineSurface({ document, dispatchAction }),
-    },
-    {
-      id: 'overview-panel',
-      selectors: anchors['overview-panel'] ?? DEFAULT_SURFACE_ANCHORS['overview-panel'],
-      createSurface: ({ document, dispatchAction }) =>
-        new OverviewPanelSurface({ document, dispatchAction }),
+      createSurface: ({ document, dispatchAction, onOpenPopover }) =>
+        new UnifiedTimelineSurface({ document, dispatchAction, onOpenPopover }),
     },
   ];
 }

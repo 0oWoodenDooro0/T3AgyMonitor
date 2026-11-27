@@ -217,7 +217,7 @@ function createCdpOverlayBridge(globalTarget) {
   return { WebSocketImpl: BridgeWebSocket, fetchImpl, bindings, sockets };
 }
 
-test('End-to-end: StateReader + TranscriptParser + Sidecar + OverlayRuntime renders all 6 surfaces and handles UI actions', async () => {
+test('End-to-end: StateReader + TranscriptParser + Sidecar + OverlayRuntime renders 3 header surfaces and handles UI actions', async () => {
   await withTempDir(async (dir) => {
     const dbPath = path.join(dir, 'statev2.sqlite');
     const providersDir = path.join(dir, 'providers', 'antigravity');
@@ -270,14 +270,11 @@ test('End-to-end: StateReader + TranscriptParser + Sidecar + OverlayRuntime rend
     const globalTarget = {};
     const bridge = createCdpOverlayBridge(globalTarget);
 
-    // Prepare all 6 native DOM anchors
+    // Prepare the 3 header DOM anchors
     for (const testId of [
       'composer-toolbar',
-      'composer-input-container',
-      'turn-stage-anchor',
       'context-breakdown-anchor',
       'unified-timeline-anchor',
-      'overview-panel-anchor',
     ]) {
       const el = document.createElement('div');
       el.setAttribute('data-testid', testId);
@@ -308,11 +305,16 @@ test('End-to-end: StateReader + TranscriptParser + Sidecar + OverlayRuntime rend
       // Wait a tick for async commandHandlers / pushState
       await new Promise((r) => setTimeout(r, 20));
 
-      // Verify all 6 surfaces mounted and rendered real data
+      // Verify the 3 header surfaces mounted and rendered real data (and removed surfaces are not registered)
+      assert.equal(runtime.getSurface('composer-ring'), null);
+      assert.equal(runtime.getSurface('stage-progress'), null);
+      assert.equal(runtime.getSurface('overview-panel'), null);
+
       const capsuleSurface = runtime.getSurface('status-capsule');
       assert.ok(capsuleSurface);
+      const capsuleRoot = runtime.registry.get('status-capsule').shadowRoot;
       assert.match(
-        runtime.registry.get('status-capsule').shadowRoot.querySelector('[data-role="capsule-slots"]').textContent,
+        capsuleRoot.querySelector('[data-role="capsule-slots"]').textContent,
         /gemini-4-hydrogen/,
       );
 
@@ -324,16 +326,13 @@ test('End-to-end: StateReader + TranscriptParser + Sidecar + OverlayRuntime rend
       assert.ok(timelineRoot.querySelectorAll('[data-role="timeline-step"]').length >= 4);
       assert.equal(timelineRoot.querySelectorAll('[data-role="running-task-item"]').length, 1);
 
-      const overviewRoot = runtime.registry.get('overview-panel').shadowRoot;
-      assert.equal(overviewRoot.querySelector('[data-role="overview-panel"]').getAttribute('data-collapsed'), 'true');
-      assert.match(overviewRoot.querySelector('[data-role="overview-usage"]').textContent, /gemini-4-hydrogen/);
-
-      // UI action round-trip 1: toggle overview panel -> updateConfig -> persisted + pushed back
-      overviewRoot.querySelector('[data-role="overview-toggle"]').dispatchEvent(new MockEvent('click'));
+      // UI action round-trip 1: updateConfig via status-capsule -> persisted + pushed back
+      const updateSelect = capsuleRoot.querySelector('[data-role="update-mode-select"]');
+      updateSelect.value = 'manual';
+      updateSelect.dispatchEvent(new MockEvent('change'));
       await new Promise((r) => setTimeout(r, 20));
-      assert.equal(overviewRoot.querySelector('[data-role="overview-panel"]').getAttribute('data-collapsed'), 'false');
       const savedConfig = JSON.parse(await fs.readFile(configPath, 'utf8'));
-      assert.equal(savedConfig.overviewOpen, true);
+      assert.equal(savedConfig.updateCheckMode, 'manual');
 
       // UI action round-trip 2: checkUpdates -> badge appears on Status Capsule
       runtime.dispatchAction('checkUpdates');
@@ -358,12 +357,6 @@ test('End-to-end: StateReader + TranscriptParser + Sidecar + OverlayRuntime rend
       runtime.dispatchAction('refresh');
       await new Promise((r) => setTimeout(r, 20));
       assert.match(breakdownRoot.querySelector('[data-role="breakdown-total"]').textContent, /2400/);
-
-      // Verify composerRing contract alignment & subagent transcriptPath resolution
-      const ringFill = runtime.registry
-        .get('composer-ring')
-        .shadowRoot.querySelector('[data-role="ring-fill"]');
-      assert.equal(ringFill.getAttribute('aria-valuenow'), '100');
 
       const latestSnapshot = await app.buildSnapshot();
       assert.ok(latestSnapshot.composerRing);

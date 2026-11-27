@@ -87,6 +87,7 @@ export class OverlayRuntime {
     const instance = definition.createSurface({
       document: this.#document,
       dispatchAction: (type, payload) => this.dispatchAction(type, payload),
+      onOpenPopover: () => this.closeOtherPopovers(definition.id),
       streamObserver: this.#streamObserver,
       logger: this.#logger,
     });
@@ -106,6 +107,14 @@ export class OverlayRuntime {
 
   getSurface(surfaceId) {
     return this.#surfaces.get(surfaceId)?.instance ?? null;
+  }
+
+  closeOtherPopovers(activeSurfaceId) {
+    for (const [id, { instance }] of this.#surfaces.entries()) {
+      if (id !== activeSurfaceId) {
+        instance?.closePopover?.();
+      }
+    }
   }
 
   mount() {

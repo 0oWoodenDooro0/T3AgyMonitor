@@ -38,6 +38,7 @@ function formatRelativeTime(entry, turnStartMs) {
 export class UnifiedTimelineSurface {
   #document;
   #dispatchAction;
+  #onOpenPopover;
   #shadowRoot = null;
   #rootEl = null;
   #toggleEl = null;
@@ -53,9 +54,14 @@ export class UnifiedTimelineSurface {
   #expandedTasks = new Set();
   #lastSnapshot = {};
 
-  constructor({ document = globalThis.document, dispatchAction = () => {} } = {}) {
+  constructor({
+    document = globalThis.document,
+    dispatchAction = () => {},
+    onOpenPopover = null,
+  } = {}) {
     this.#document = document;
     this.#dispatchAction = dispatchAction;
+    this.#onOpenPopover = typeof onOpenPopover === 'function' ? onOpenPopover : null;
   }
 
   mount(shadowRoot) {
@@ -64,7 +70,7 @@ export class UnifiedTimelineSurface {
 
     const style = this.#document.createElement('style');
     style.textContent = `
-      :host { display: inline-flex; align-items: center; position: relative; margin-right: 6px !important; z-index: 50; -webkit-app-region: no-drag !important; app-region: no-drag !important; font-family: var(--font-sans, system-ui, sans-serif); font-size: 12px; color: var(--foreground); flex-shrink: 0; }
+      :host { display: inline-flex; align-items: center; position: relative; margin-right: 185px !important; z-index: 50; -webkit-app-region: no-drag !important; app-region: no-drag !important; font-family: var(--font-sans, system-ui, sans-serif); font-size: 12px; color: var(--foreground); flex-shrink: 0; }
       .timeline-toggle { box-sizing: border-box; display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 999px; -webkit-app-region: no-drag; app-region: no-drag; background: color-mix(in oklch, var(--secondary) 55%, transparent); color: var(--foreground); border: 1px solid color-mix(in oklch, var(--border) 45%, transparent); font-size: 11px; font-family: inherit; font-variant-numeric: tabular-nums; cursor: pointer; white-space: nowrap; transition: background 120ms ease, border-color 120ms ease; }
       .timeline-toggle:hover { background: var(--accent); border-color: var(--border); }
       .timeline-root { position: fixed; top: 48px; right: 16px; width: 460px; max-height: 70vh; overflow-y: auto; z-index: 80; pointer-events: auto; display: flex; flex-direction: column; gap: 8px; padding: 0 10px 10px; border-radius: calc(var(--radius, 8px) + 2px); background: var(--popover); color: var(--popover-foreground, var(--foreground)); border: 1px solid color-mix(in oklch, var(--border) 45%, transparent); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4); backdrop-filter: blur(10px); font-variant-numeric: tabular-nums; }
@@ -99,7 +105,11 @@ export class UnifiedTimelineSurface {
     toggleEl.className = 'timeline-toggle';
     toggleEl.textContent = 'Timeline';
     toggleEl.addEventListener('click', () => {
-      this.#open = !this.#open;
+      const nextOpen = !this.#open;
+      if (nextOpen) {
+        this.#onOpenPopover?.();
+      }
+      this.#open = nextOpen;
       this.#syncOpen();
     });
 
@@ -171,6 +181,14 @@ export class UnifiedTimelineSurface {
     this.#railEl = railEl;
     this.#stepsEl = stepsEl;
     this.#runningEl = runningEl;
+    this.#syncOpen();
+  }
+
+  closePopover() {
+    if (!this.#open) {
+      return;
+    }
+    this.#open = false;
     this.#syncOpen();
   }
 

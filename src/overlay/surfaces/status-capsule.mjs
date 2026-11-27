@@ -77,6 +77,7 @@ function buildRingSvg(percent) {
 export class StatusCapsuleSurface {
   #document;
   #dispatchAction;
+  #onOpenPopover;
   #shadowRoot = null;
   #barEl = null;
   #ringEl = null;
@@ -110,9 +111,11 @@ export class StatusCapsuleSurface {
   constructor({
     document = globalThis.document,
     dispatchAction = () => {},
+    onOpenPopover = null,
   } = {}) {
     this.#document = document;
     this.#dispatchAction = dispatchAction;
+    this.#onOpenPopover = typeof onOpenPopover === 'function' ? onOpenPopover : null;
   }
 
   mount(shadowRoot) {
@@ -375,7 +378,11 @@ export class StatusCapsuleSurface {
       this.#syncVisibility();
     });
     bar.addEventListener('click', () => {
-      this.#popoverOpen = !this.#popoverOpen;
+      const nextOpen = !this.#popoverOpen;
+      if (nextOpen) {
+        this.#onOpenPopover?.();
+      }
+      this.#popoverOpen = nextOpen;
       this.#syncVisibility();
     });
     bar.addEventListener('contextmenu', (event) => {
@@ -584,6 +591,14 @@ export class StatusCapsuleSurface {
         this.#usageSectionEl.appendChild(row);
       }
     }
+  }
+
+  closePopover() {
+    if (!this.#popoverOpen) {
+      return;
+    }
+    this.#popoverOpen = false;
+    this.#syncVisibility();
   }
 
   #syncVisibility() {

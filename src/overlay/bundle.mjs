@@ -44,28 +44,10 @@ const MODULE_SPECS = [
     exports: ['StatusCapsuleSurface', 'clampCapsuleSlots'],
   },
   {
-    file: './surfaces/composer-ring.mjs',
-    varName: '__mod_composer_ring',
-    imports: [],
-    exports: ['ComposerRingSurface', 'clampPercent'],
-  },
-  {
-    file: './surfaces/stage-progress.mjs',
-    varName: '__mod_stage_progress',
-    imports: [],
-    exports: ['StageProgressSurface'],
-  },
-  {
     file: './surfaces/unified-timeline.mjs',
     varName: '__mod_unified_timeline',
     imports: [],
     exports: ['UnifiedTimelineSurface'],
-  },
-  {
-    file: './surfaces/overview-panel.mjs',
-    varName: '__mod_overview_panel',
-    imports: [],
-    exports: ['OverviewPanelSurface'],
   },
   {
     file: './index.mjs',
@@ -74,11 +56,8 @@ const MODULE_SPECS = [
       'const { DEFAULT_SURFACE_ANCHORS } = __mod_anchor_adapter;',
       'const { OverlayRuntime } = __mod_runtime;',
       'const { StatusCapsuleSurface } = __mod_status_capsule;',
-      'const { ComposerRingSurface } = __mod_composer_ring;',
-      'const { StageProgressSurface } = __mod_stage_progress;',
       'const { ContextBreakdownSurface } = __mod_context_breakdown;',
       'const { UnifiedTimelineSurface } = __mod_unified_timeline;',
-      'const { OverviewPanelSurface } = __mod_overview_panel;',
     ],
     exports: ['createDefaultSurfaceDefinitions', 'installOverlayRuntime'],
   },
@@ -114,7 +93,7 @@ function getCoreBundleSource() {
 
 /**
  * Assemble a zero-dependency, browser-executable IIFE that bootstraps
- * OverlayRuntime, all 6 Shadow DOM surfaces, and StreamObserver on globalThis.
+ * OverlayRuntime, the 3 header Shadow DOM surfaces, and StreamObserver on globalThis.
  */
 export function buildOverlayScript(options = {}) {
   const serializedOptions = JSON.stringify(options ?? {});

@@ -567,12 +567,12 @@ test('OverviewPanelSurface persists collapsed state via updateConfig and renders
   assert.match(quotaRows[0].textContent, /82%/);
 });
 
-test('installOverlayRuntime registers all 6 surfaces and silently skips missing anchors with console.warn (ADR-0004)', () => {
+test('installOverlayRuntime registers the 3 header surfaces and silently skips missing anchors with console.warn (ADR-0004)', () => {
   const { document, MockMutationObserver } = createMockDom();
   const warnings = [];
   const logger = { warn: (msg) => warnings.push(msg) };
 
-  // Only provide anchors for status-capsule and context-breakdown; omit unified-timeline, overview-panel, etc.
+  // Only provide anchors for status-capsule and context-breakdown; omit unified-timeline.
   const capsuleAnchor = document.createElement('div');
   capsuleAnchor.setAttribute('data-testid', 'composer-toolbar');
   document.body.appendChild(capsuleAnchor);
@@ -581,9 +581,9 @@ test('installOverlayRuntime registers all 6 surfaces and silently skips missing 
   breakdownAnchor.setAttribute('data-testid', 'context-breakdown-anchor');
   document.body.appendChild(breakdownAnchor);
 
+  assert.ok(Array.isArray(DEFAULT_SURFACE_ANCHORS['status-capsule']));
   assert.ok(Array.isArray(DEFAULT_SURFACE_ANCHORS['context-breakdown']));
   assert.ok(Array.isArray(DEFAULT_SURFACE_ANCHORS['unified-timeline']));
-  assert.ok(Array.isArray(DEFAULT_SURFACE_ANCHORS['overview-panel']));
 
   const runtime = installOverlayRuntime({
     document,
@@ -592,20 +592,82 @@ test('installOverlayRuntime registers all 6 surfaces and silently skips missing 
     logger,
   });
 
+  assert.ok(runtime.getSurface('status-capsule'));
   assert.ok(runtime.getSurface('context-breakdown'));
   assert.ok(runtime.getSurface('unified-timeline'));
-  assert.ok(runtime.getSurface('overview-panel'));
+  assert.equal(runtime.getSurface('composer-ring'), null);
+  assert.equal(runtime.getSurface('stage-progress'), null);
+  assert.equal(runtime.getSurface('overview-panel'), null);
+  assert.equal(runtime.registry.get('status-capsule').isMounted, true);
   assert.equal(runtime.registry.get('context-breakdown').isMounted, true);
   assert.equal(runtime.registry.get('unified-timeline').isMounted, false);
-  assert.equal(runtime.registry.get('overview-panel').isMounted, false);
 
-  // Silent skip warnings emitted, no floating fallback appended to document.body
+  // Silent skip warning emitted, no floating fallback appended to document.body
+  assert.equal(warnings.length, 1);
   assert.ok(warnings.some((w) => String(w).includes('unified-timeline')));
-  assert.ok(warnings.some((w) => String(w).includes('overview-panel')));
   assert.equal(
-    document.body.children.some((c) => c.getAttribute('data-t3-agy-surface') === 'overview-panel'),
+    document.body.children.some((c) => c.getAttribute('data-t3-agy-surface') === 'unified-timeline'),
     false,
   );
+
+  runtime.destroy();
+});
+
+test('Header popovers are mutually exclusive across status-capsule, context-breakdown, and unified-timeline', () => {
+  const { document, MockMutationObserver, MockEvent } = createMockDom();
+
+  for (const testId of ['composer-toolbar', 'context-breakdown-anchor', 'unified-timeline-anchor']) {
+    const anchor = document.createElement('div');
+    anchor.setAttribute('data-testid', testId);
+    document.body.appendChild(anchor);
+  }
+
+  const runtime = installOverlayRuntime({
+    document,
+    MutationObserver: MockMutationObserver,
+    globalTarget: {},
+    logger: { warn: () => {} },
+  });
+
+  const capsuleShadow = runtime.registry.get('status-capsule').shadowRoot;
+  const breakdownShadow = runtime.registry.get('context-breakdown').shadowRoot;
+  const timelineShadow = runtime.registry.get('unified-timeline').shadowRoot;
+
+  const capsuleBar = capsuleShadow.querySelector('[data-role="capsule-bar"]');
+  const capsulePopover = capsuleShadow.querySelector('[data-role="popover"]');
+  const breakdownToggle = breakdownShadow.querySelector('[data-role="context-toggle"]');
+  const breakdownRoot = breakdownShadow.querySelector('[data-role="context-breakdown-root"]');
+  const timelineToggle = timelineShadow.querySelector('[data-role="timeline-toggle"]');
+  const timelineRoot = timelineShadow.querySelector('[data-role="unified-timeline-root"]');
+
+  // Initially all closed
+  assert.equal(capsulePopover.getAttribute('aria-hidden'), 'true');
+  assert.equal(breakdownRoot.getAttribute('data-open'), 'false');
+  assert.equal(timelineRoot.getAttribute('data-open'), 'false');
+
+  // Open status-capsule -> others remain closed
+  capsuleBar.dispatchEvent(new MockEvent('click'));
+  assert.equal(capsulePopover.getAttribute('aria-hidden'), 'false');
+  assert.equal(breakdownRoot.getAttribute('data-open'), 'false');
+  assert.equal(timelineRoot.getAttribute('data-open'), 'false');
+
+  // Open context-breakdown -> closes status-capsule
+  breakdownToggle.dispatchEvent(new MockEvent('click'));
+  assert.equal(breakdownRoot.getAttribute('data-open'), 'true');
+  assert.equal(capsulePopover.getAttribute('aria-hidden'), 'true');
+  assert.equal(timelineRoot.getAttribute('data-open'), 'false');
+
+  // Open unified-timeline -> closes context-breakdown
+  timelineToggle.dispatchEvent(new MockEvent('click'));
+  assert.equal(timelineRoot.getAttribute('data-open'), 'true');
+  assert.equal(breakdownRoot.getAttribute('data-open'), 'false');
+  assert.equal(capsulePopover.getAttribute('aria-hidden'), 'true');
+
+  // Open status-capsule -> closes unified-timeline and context-breakdown
+  capsuleBar.dispatchEvent(new MockEvent('click'));
+  assert.equal(capsulePopover.getAttribute('aria-hidden'), 'false');
+  assert.equal(breakdownRoot.getAttribute('data-open'), 'false');
+  assert.equal(timelineRoot.getAttribute('data-open'), 'false');
 
   runtime.destroy();
 });

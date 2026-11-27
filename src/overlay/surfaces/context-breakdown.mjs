@@ -84,6 +84,7 @@ export function buildBreakdownStats(entry, fallbackLabel = 'Main Agent') {
 export class ContextBreakdownSurface {
   #document;
   #dispatchAction;
+  #onOpenPopover;
   #shadowRoot = null;
   #rootEl = null;
   #toggleEl = null;
@@ -95,9 +96,14 @@ export class ContextBreakdownSurface {
   #selectedAgentId = 'main';
   #lastSnapshot = {};
 
-  constructor({ document = globalThis.document, dispatchAction = () => {} } = {}) {
+  constructor({
+    document = globalThis.document,
+    dispatchAction = () => {},
+    onOpenPopover = null,
+  } = {}) {
     this.#document = document;
     this.#dispatchAction = dispatchAction;
+    this.#onOpenPopover = typeof onOpenPopover === 'function' ? onOpenPopover : null;
   }
 
   mount(shadowRoot) {
@@ -136,7 +142,11 @@ export class ContextBreakdownSurface {
     toggleEl.className = 'context-toggle';
     toggleEl.textContent = 'Context';
     toggleEl.addEventListener('click', () => {
-      this.#open = !this.#open;
+      const nextOpen = !this.#open;
+      if (nextOpen) {
+        this.#onOpenPopover?.();
+      }
+      this.#open = nextOpen;
       this.#syncOpen();
     });
 
@@ -194,6 +204,14 @@ export class ContextBreakdownSurface {
     this.#totalEl = totalEl;
     this.#barEl = barEl;
     this.#rowsEl = rowsEl;
+    this.#syncOpen();
+  }
+
+  closePopover() {
+    if (!this.#open) {
+      return;
+    }
+    this.#open = false;
     this.#syncOpen();
   }
 

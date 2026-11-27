@@ -580,15 +580,12 @@ test('OverlayRuntime mounts pluggable surfaces, skips missing anchors, receives 
     __t3AgyMonitorSend: (raw) => bindingCalls.push(JSON.parse(raw)),
   };
 
-  // Mount composer-bar & turn-stage-anchor, omit composer-input-container (silent skip)
+  // Mount composer-bar & custom-panel-anchor, omit context-breakdown & unified-timeline (silent skip)
   const composerBar = dom.document.createElement('div');
   composerBar.setAttribute('data-testid', 'composer-bar');
-  const stageAnchor = dom.document.createElement('div');
-  stageAnchor.setAttribute('data-testid', 'turn-stage-anchor');
   const customAnchor = dom.document.createElement('div');
   customAnchor.setAttribute('data-testid', 'custom-panel-anchor');
   dom.document.body.appendChild(composerBar);
-  dom.document.body.appendChild(stageAnchor);
   dom.document.body.appendChild(customAnchor);
 
   const customUpdates = [];
@@ -619,10 +616,10 @@ test('OverlayRuntime mounts pluggable surfaces, skips missing anchors, receives 
 
   assert.ok(runtime instanceof OverlayRuntime);
   assert.equal(composerBar.children.length, 1);
-  assert.equal(stageAnchor.children.length, 1);
   assert.equal(customAnchor.children.length, 1);
-  assert.equal(warnings.length, 4); // composer-ring + 3 panel surfaces missing -> silent skip + warn
-  assert.ok(warnings.some((w) => String(w).includes('composer-ring')));
+  assert.equal(warnings.length, 2); // context-breakdown + unified-timeline missing -> silent skip + warn
+  assert.ok(warnings.some((w) => String(w).includes('context-breakdown')));
+  assert.ok(warnings.some((w) => String(w).includes('unified-timeline')));
 
   // Push state via global receiver (__t3AgyMonitorReceive)
   globalTarget.__t3AgyMonitorReceive({
@@ -704,11 +701,8 @@ test('buildOverlayScript assembles a self-contained browser-executable IIFE retu
   const dom = createMockDom();
   for (const testId of [
     'composer-toolbar',
-    'composer-input-container',
-    'turn-stage-anchor',
     'context-breakdown-anchor',
     'unified-timeline-anchor',
-    'overview-panel-anchor',
   ]) {
     const el = dom.document.createElement('div');
     el.setAttribute('data-testid', testId);
@@ -741,17 +735,14 @@ test('buildOverlayScript assembles a self-contained browser-executable IIFE retu
   const summary = vm.runInNewContext(script, sandbox);
   assert.equal(summary.ok, true);
   assert.equal(summary.alreadyInstalled, false);
-  assert.equal(summary.mounted.length, 6);
+  assert.equal(summary.mounted.length, 3);
   assert.deepStrictEqual(JSON.parse(JSON.stringify(summary)), {
     ok: true,
     alreadyInstalled: false,
     mounted: [
       'status-capsule',
-      'composer-ring',
-      'stage-progress',
       'context-breakdown',
       'unified-timeline',
-      'overview-panel',
     ],
   });
 
@@ -762,23 +753,25 @@ test('buildOverlayScript assembles a self-contained browser-executable IIFE retu
   const secondSummary = vm.runInNewContext(script, sandbox);
   assert.equal(secondSummary.ok, true);
   assert.equal(secondSummary.alreadyInstalled, true);
-  assert.equal(secondSummary.mounted.length, 6);
+  assert.equal(secondSummary.mounted.length, 3);
 
   sandbox.__t3AgyMonitorReceive({
     config: { capsuleSlots: ['model', 'context'] },
     metrics: { model: 'gemini-4-hydrogen', contextPercent: 33 },
-    composerRing: { mode: 'context_window', percent: 67, label: 'Context Window' },
+    contextBreakdown: {
+      totalInputTokens: 1200,
+      categories: { 'User Messages': 400 },
+    },
   });
 
   const capsuleText = runtime.registry
     .get('status-capsule')
     .shadowRoot.querySelector('[data-role="capsule-slots"]').textContent;
   assert.match(capsuleText, /gemini-4-hydrogen/);
-  const ringVal = runtime.registry
-    .get('composer-ring')
-    .shadowRoot.querySelector('[data-role="ring-fill"]')
-    .getAttribute('aria-valuenow');
-  assert.equal(ringVal, '67');
+  const breakdownTotal = runtime.registry
+    .get('context-breakdown')
+    .shadowRoot.querySelector('[data-role="breakdown-total"]').textContent;
+  assert.match(breakdownTotal, /1200/);
 
   runtime.destroy();
 });
