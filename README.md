@@ -1,24 +1,68 @@
 # T3AgyMonitor
 
-Live session monitor capsule, context breakdown, and in-app update checker plugin for **T3 Code Desktop** (targeting the **Antigravity** provider).
+Live session monitor overlay for **T3 Code Desktop** (Antigravity provider).
 
-## Planned Scope
+## Requirements
 
-1. **Live Monitoring Capsule & Context Analysis (Single Session)**
-   - **2.1 Live Status Capsule** (titlebar / composer): customizable 1–5 metric slots (`tok/s`, TTFT, context window usage, cache hit rate, step/session USD cost, ring progress gauge).
-   - **2.2 Composer Quota Ring / Border**: remaining model quota indicator around the composer input.
-   - **2.3 10-Category Context Breakdown**: breakdown of latest request tokens across System Prompt, User Rules, Skills, MCP Tools, System Tools, User messages, Assistant replies, Tool results, Subagent notifications, and Checkpoints (with main-agent / subagent switcher).
-   - **2.4 Main Agent / Subagent / Swarm Unified Timeline**: chronological merged view, turn rail, inline running task expansion, per-agent filter.
-   - **2.5 Stage Progress Reporting & Auto-Collapse**: brief progress updates during consecutive tool calls, auto-collapsing into the top duration bar when the turn completes.
-   - **2.6 Collapsible Right Overview Panel**: current execution stage, per-step duration, and per-model remaining quota.
-2. **In-App Update Checker**
-   - **6.2 In-App Update Check**: manual / auto / off update check with version badge notification.
+- Linux with **T3 Code Desktop** (`/opt/t3code-bin/t3code`)
+- **Node.js `>= 22.0.0`** (no `npm install` needed)
 
-## Target Environment
+## Install & Run
 
-- **Host**: T3 Code Desktop (Electron + React)
-- **Provider**: Antigravity only
-- **Reference Projects**:
-  - [WhiteBr1ck/agy-powertools](https://github.com/WhiteBr1ck/agy-powertools)
-  - [yuhuan-dev/antigravity-usage-monitor](https://github.com/yuhuan-dev/antigravity-usage-monitor)
-  - [pingdotgg/t3code](https://github.com/pingdotgg/t3code)
+1. **Clone and verify:**
+   ```bash
+   git clone https://github.com/0oWoodenDooro0/T3AgyMonitor.git
+   cd T3AgyMonitor
+   npm test
+   ```
+
+2. **Start T3 Code Desktop with CDP enabled (port `9222`):**
+   Check if CDP is already active:
+   ```bash
+   curl -sf http://127.0.0.1:9222/json/list
+   ```
+   If not active, relaunch T3 Code Desktop with:
+   ```bash
+   /opt/t3code-bin/t3code --remote-debugging-port=9222
+   ```
+
+3. **Start the monitor:**
+   ```bash
+   node src/cli.mjs --port 9222
+   ```
+   (Or set `T3_CDP_PORT=9222`.)
+   Success output:
+   ```text
+   [T3AgyMonitor] Watching CDP port 9222 (Ctrl+C to stop)...
+   [T3AgyMonitor] Connected to Host App on CDP port 9222
+   ```
+
+## Optional: Background Service (`systemd --user`)
+
+```bash
+mkdir -p ~/.config/systemd/user
+cat <<EOF > ~/.config/systemd/user/t3-agy-monitor.service
+[Unit]
+Description=T3AgyMonitor
+After=default.target
+
+[Service]
+Type=simple
+ExecStart=$(command -v node) $(pwd)/src/cli.mjs --port 9222
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=default.target
+EOF
+
+systemctl --user daemon-reload
+systemctl --user enable --now t3-agy-monitor.service
+```
+
+## Config
+
+- File: `~/.config/t3-agy-monitor/config.json` (auto-created on first change from the UI)
+- Keys:
+  - `capsuleSlots`: array of 1–5 items from `["model", "context", "cost", "speed", "cache"]`
+  - `updateCheckMode`: `"auto"` | `"manual"` | `"off"`
