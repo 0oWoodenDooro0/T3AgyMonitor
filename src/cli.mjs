@@ -6,6 +6,7 @@ import {
   Sidecar,
   validatePort,
 } from './sidecar/index.mjs';
+import { createApp } from './app.mjs';
 
 /**
  * Parse CLI flags (`--port <n>`, `--port=<n>`, `-h`/`--help`) and `T3_CDP_PORT`.
@@ -51,6 +52,7 @@ export async function runCli(
     stdout = process.stdout,
     stderr = process.stderr,
     SidecarClass = Sidecar,
+    AppFactory = createApp,
     logger = console,
     registerSignals = true,
   } = {},
@@ -73,16 +75,16 @@ export async function runCli(
     return 0;
   }
 
-  const sidecar = new SidecarClass({ port: options.port, logger });
+  const app = AppFactory({ port: options.port, SidecarClass, logger });
   if (registerSignals) {
     const shutdown = () => {
-      void sidecar.stop().then(() => process.exit(0));
+      void app.stop().then(() => process.exit(0));
     };
     process.once('SIGINT', shutdown);
     process.once('SIGTERM', shutdown);
   }
 
-  await sidecar.start();
+  await app.start();
   return 0;
 }
 

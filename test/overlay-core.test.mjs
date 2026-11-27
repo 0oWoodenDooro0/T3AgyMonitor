@@ -601,7 +601,8 @@ test('OverlayRuntime mounts pluggable surfaces, skips missing anchors, receives 
   assert.equal(composerBar.children.length, 1);
   assert.equal(stageAnchor.children.length, 1);
   assert.equal(customAnchor.children.length, 1);
-  assert.equal(warnings.length, 1); // composer-ring missing -> silent skip + warn
+  assert.equal(warnings.length, 4); // composer-ring + 3 panel surfaces missing -> silent skip + warn
+  assert.ok(warnings.some((w) => String(w).includes('composer-ring')));
 
   // Push state via global receiver (__t3AgyMonitorReceive)
   globalTarget.__t3AgyMonitorReceive({

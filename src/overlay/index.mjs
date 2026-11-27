@@ -3,6 +3,9 @@ import { OverlayRuntime } from './runtime.mjs';
 import { StatusCapsuleSurface } from './surfaces/status-capsule.mjs';
 import { ComposerRingSurface } from './surfaces/composer-ring.mjs';
 import { StageProgressSurface } from './surfaces/stage-progress.mjs';
+import { ContextBreakdownSurface } from './surfaces/context-breakdown.mjs';
+import { UnifiedTimelineSurface } from './surfaces/unified-timeline.mjs';
+import { OverviewPanelSurface } from './surfaces/overview-panel.mjs';
 
 export function createDefaultSurfaceDefinitions(anchors = DEFAULT_SURFACE_ANCHORS) {
   return [
@@ -21,6 +24,24 @@ export function createDefaultSurfaceDefinitions(anchors = DEFAULT_SURFACE_ANCHOR
       id: 'stage-progress',
       selectors: anchors['stage-progress'] ?? DEFAULT_SURFACE_ANCHORS['stage-progress'],
       createSurface: ({ document }) => new StageProgressSurface({ document }),
+    },
+    {
+      id: 'context-breakdown',
+      selectors: anchors['context-breakdown'] ?? DEFAULT_SURFACE_ANCHORS['context-breakdown'],
+      createSurface: ({ document, dispatchAction }) =>
+        new ContextBreakdownSurface({ document, dispatchAction }),
+    },
+    {
+      id: 'unified-timeline',
+      selectors: anchors['unified-timeline'] ?? DEFAULT_SURFACE_ANCHORS['unified-timeline'],
+      createSurface: ({ document, dispatchAction }) =>
+        new UnifiedTimelineSurface({ document, dispatchAction }),
+    },
+    {
+      id: 'overview-panel',
+      selectors: anchors['overview-panel'] ?? DEFAULT_SURFACE_ANCHORS['overview-panel'],
+      createSurface: ({ document, dispatchAction }) =>
+        new OverviewPanelSurface({ document, dispatchAction }),
     },
   ];
 }
@@ -52,3 +73,6 @@ export { OverlayRuntime, DEFAULT_BINDING_NAME, DEFAULT_STATE_RECEIVER } from './
 export { StatusCapsuleSurface, clampCapsuleSlots } from './surfaces/status-capsule.mjs';
 export { ComposerRingSurface, clampPercent } from './surfaces/composer-ring.mjs';
 export { StageProgressSurface } from './surfaces/stage-progress.mjs';
+export { ContextBreakdownSurface, CONTEXT_CATEGORIES } from './surfaces/context-breakdown.mjs';
+export { UnifiedTimelineSurface } from './surfaces/unified-timeline.mjs';
+export { OverviewPanelSurface } from './surfaces/overview-panel.mjs';

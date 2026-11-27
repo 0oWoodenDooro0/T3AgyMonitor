@@ -17,6 +17,24 @@ export const DEFAULT_SURFACE_ANCHORS = Object.freeze({
     '[data-testid="message-list"]',
     '.thread-messages',
   ]),
+  'context-breakdown': Object.freeze([
+    '[data-testid="context-breakdown-anchor"]',
+    '[data-testid="context-popover-anchor"]',
+    '[data-testid="composer-toolbar"]',
+    'footer[data-slot="composer"]',
+  ]),
+  'unified-timeline': Object.freeze([
+    '[data-testid="unified-timeline-anchor"]',
+    '[data-testid="thread-timeline-anchor"]',
+    '[data-testid="message-list"]',
+    '.thread-messages',
+  ]),
+  'overview-panel': Object.freeze([
+    '[data-testid="overview-panel-anchor"]',
+    '[data-testid="right-drawer-anchor"]',
+    '[data-testid="thread-workspace"]',
+    'main',
+  ]),
 });
 
 /**
