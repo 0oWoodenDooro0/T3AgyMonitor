@@ -307,7 +307,7 @@ export class StatusCapsuleSurface {
     settingsToggleEl.setAttribute('data-role', 'settings-toggle');
     settingsToggleEl.className = 'settings-toggle';
     settingsToggleEl.setAttribute('aria-expanded', 'false');
-    settingsToggleEl.textContent = 'Settings ⚙';
+    settingsToggleEl.textContent = 'Settings';
     settingsToggleEl.addEventListener('click', () => {
       this.#settingsOpen = !this.#settingsOpen;
       this.#syncVisibility();
