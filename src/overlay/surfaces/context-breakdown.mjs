@@ -53,10 +53,11 @@ export class ContextBreakdownSurface {
 
     const style = this.#document.createElement('style');
     style.textContent = `
-      :host { display: block; font-family: system-ui, sans-serif; font-size: 12px; }
-      .breakdown-panel { padding: 8px 10px; border-radius: 8px; }
+      :host { display: inline-block; font-family: system-ui, sans-serif; font-size: 12px; color: var(--foreground, #e4e4e7); }
+      .breakdown-panel { padding: 8px 10px; border-radius: 8px; background: var(--popover, rgba(24, 24, 27, 0.94)); color: var(--foreground, #e4e4e7); border: 1px solid var(--border, rgba(255, 255, 255, 0.12)); }
       .breakdown-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
       .breakdown-row { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; }
+      select { background: var(--secondary, rgba(255, 255, 255, 0.08)); color: var(--foreground, #e4e4e7); border: 1px solid var(--border, rgba(255, 255, 255, 0.14)); border-radius: 6px; padding: 2px 6px; font-size: 11px; }
     `;
 
     const root = this.#document.createElement('div');

@@ -140,11 +140,28 @@ export class T3StateReader {
       ORDER BY started_at ASC, subagent_id ASC
     `);
 
+    const hasProviderThreads = hasTable(db, 'orchestration_v2_projection_provider_threads');
+    const providerThreadStmt = hasProviderThreads
+      ? db.prepare(`
+          SELECT provider_thread_id, payload_json
+          FROM orchestration_v2_projection_provider_threads
+          WHERE thread_id = ?
+          ORDER BY updated_at DESC
+        `)
+      : null;
+
     while (queue.length > 0) {
       const { threadId, depth } = queue.shift();
       const rows = stmt.all(threadId);
       for (const row of rows) {
-        const conversationId = extractConversationId(row.provider_thread_id);
+        let conversationId = extractProviderConversationId(row.provider_thread_id, row.payload_json);
+        if (!conversationId && row.child_thread_id && providerThreadStmt) {
+          const ptRows = providerThreadStmt.all(row.child_thread_id);
+          conversationId =
+            ptRows
+              .map((pt) => extractProviderConversationId(pt.provider_thread_id, pt.payload_json))
+              .find(Boolean) ?? null;
+        }
         collected.push({
           ...row,
           depth,

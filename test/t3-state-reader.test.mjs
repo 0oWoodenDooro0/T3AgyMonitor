@@ -295,3 +295,118 @@ test('T3StateReader reads orchestration_v2_projection_threads and orchestration_
     assert.equal(snapshot.transcriptPath, transcriptFile);
   });
 });
+
+test('T3StateReader resolves delegated subagent conversationId and transcriptPath via orchestration_v2_projection_provider_threads', async () => {
+  await withTempDir(async (dir) => {
+    const dbPath = path.join(dir, 'statev2.sqlite');
+    const providersDir = path.join(dir, 'providers', 'antigravity');
+    const convMain = 'conv-main-delegator';
+    const convChild = 'conv-child-delegated';
+    const childTranscriptFile = path.join(
+      providersDir,
+      'acct-hash',
+      'antigravity-acp',
+      'brain',
+      convChild,
+      '.system_generated',
+      'logs',
+      'transcript.jsonl',
+    );
+    await fs.mkdir(path.dirname(childTranscriptFile), { recursive: true });
+    await fs.writeFile(childTranscriptFile, '', 'utf8');
+
+    const db = createFixtureDb(dbPath);
+    db.exec(`
+      CREATE TABLE orchestration_v2_projection_threads (
+        thread_id TEXT PRIMARY KEY,
+        project_id TEXT,
+        title TEXT,
+        default_provider TEXT,
+        runtime_mode TEXT,
+        interaction_mode TEXT,
+        active_provider_thread_id TEXT,
+        created_at TEXT,
+        updated_at TEXT,
+        archived_at TEXT,
+        deleted_at TEXT,
+        payload_json TEXT,
+        provider_instance_id TEXT,
+        fork_run_ids_json TEXT
+      );
+      CREATE TABLE orchestration_v2_projection_provider_threads (
+        provider_thread_id TEXT PRIMARY KEY,
+        thread_id TEXT,
+        owner_node_id TEXT,
+        provider TEXT,
+        provider_session_id TEXT,
+        status TEXT,
+        first_run_ordinal INTEGER,
+        last_run_ordinal INTEGER,
+        updated_at TEXT,
+        payload_json TEXT,
+        driver TEXT,
+        provider_instance_id TEXT
+      );
+    `);
+
+    const pendingMainPt =
+      'provider-thread:provider:antigravity:native-thread:pending%3Arun%3Athread%3Amain-1%3Aordinal%3A1';
+    const pendingChildPt =
+      'provider-thread:provider:antigravity:native-thread:pending%3Arun%3Athread%3Achild-1%3Aordinal%3A1';
+
+    db.prepare(
+      `INSERT INTO orchestration_v2_projection_threads (thread_id, project_id, title, default_provider, active_provider_thread_id, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
+    ).run('main-1', 'proj-1', 'Main', 'antigravity', pendingMainPt, '2026-11-27T12:00:00Z');
+
+    db.prepare(
+      `INSERT INTO orchestration_v2_projection_threads (thread_id, project_id, title, default_provider, active_provider_thread_id, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
+    ).run('child-1', 'proj-1', 'Delegated Child', 'antigravity', pendingChildPt, '2026-11-27T12:01:00Z');
+
+    db.prepare(
+      `INSERT INTO orchestration_v2_projection_provider_threads (provider_thread_id, thread_id, provider, status, updated_at, payload_json) VALUES (?, ?, ?, ?, ?, ?)`,
+    ).run(
+      pendingMainPt,
+      'main-1',
+      'antigravity',
+      'active',
+      '2026-11-27T12:00:00Z',
+      JSON.stringify({ nativeThreadRef: { driver: 'antigravity', nativeId: convMain } }),
+    );
+
+    db.prepare(
+      `INSERT INTO orchestration_v2_projection_provider_threads (provider_thread_id, thread_id, provider, status, updated_at, payload_json) VALUES (?, ?, ?, ?, ?, ?)`,
+    ).run(
+      pendingChildPt,
+      'child-1',
+      'antigravity',
+      'active',
+      '2026-11-27T12:01:00Z',
+      JSON.stringify({ nativeThreadRef: { driver: 'antigravity', nativeId: convChild } }),
+    );
+
+    db.prepare(
+      `INSERT INTO orchestration_v2_projection_subagents (subagent_id, thread_id, run_id, parent_node_id, provider, provider_thread_id, child_thread_id, origin, status, started_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      'sub-delegated-1',
+      'main-1',
+      'run-1',
+      'root',
+      'antigravity',
+      pendingChildPt,
+      'child-1',
+      'delegate_task',
+      'running',
+      '2026-11-27T12:01:00Z',
+    );
+    db.close();
+
+    const reader = new T3StateReader({ dbPath, providersDir, logger: { warn() {} } });
+    const snapshot = await reader.getThreadSnapshot('main-1');
+
+    assert.ok(snapshot);
+    assert.equal(snapshot.subagents.length, 1);
+    assert.equal(snapshot.subagents[0].child_thread_id, 'child-1');
+    assert.equal(snapshot.subagents[0].conversationId, convChild);
+    assert.equal(snapshot.subagents[0].transcriptPath, childTranscriptFile);
+  });
+});

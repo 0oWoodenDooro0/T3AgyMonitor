@@ -34,11 +34,11 @@ export class ComposerRingSurface {
 
     const style = this.#document.createElement('style');
     style.textContent = `
-      :host { display: block; pointer-events: none; }
+      :host { display: block; pointer-events: none; color: var(--foreground, #e4e4e7); }
       .ring-frame { position: relative; border-radius: 12px; padding: 2px; }
-      .ring-track { height: 3px; width: 100%; border-radius: 999px; overflow: hidden; }
-      .ring-fill { height: 100%; transition: width 150ms ease; }
-      .ring-label { font-family: system-ui, sans-serif; font-size: 11px; margin-top: 2px; }
+      .ring-track { height: 3px; width: 100%; border-radius: 999px; overflow: hidden; background: var(--secondary, rgba(255, 255, 255, 0.1)); }
+      .ring-fill { height: 100%; background: var(--primary, #3b82f6); transition: width 150ms ease; }
+      .ring-label { font-family: system-ui, sans-serif; font-size: 11px; margin-top: 2px; color: var(--muted-foreground, rgba(228, 228, 231, 0.72)); }
     `;
 
     const ringEl = this.#document.createElement('div');

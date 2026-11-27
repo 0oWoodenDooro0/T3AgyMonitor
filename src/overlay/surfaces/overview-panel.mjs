@@ -32,11 +32,12 @@ export class OverviewPanelSurface {
 
     const style = this.#document.createElement('style');
     style.textContent = `
-      :host { display: block; font-family: system-ui, sans-serif; font-size: 12px; }
-      .overview-panel { display: flex; flex-direction: column; gap: 8px; padding: 8px 10px; border-radius: 8px; }
+      :host { display: block; position: fixed; top: 84px; right: 16px; z-index: 40; max-width: 320px; font-family: system-ui, sans-serif; font-size: 12px; color: var(--foreground, #e4e4e7); }
+      .overview-panel { display: flex; flex-direction: column; gap: 8px; padding: 8px 10px; border-radius: 8px; background: var(--popover, rgba(24, 24, 27, 0.94)); color: var(--foreground, #e4e4e7); border: 1px solid var(--border, rgba(255, 255, 255, 0.12)); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); backdrop-filter: blur(8px); }
       .overview-panel[data-collapsed="true"] .overview-body { display: none; }
       .overview-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
       .overview-row { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; }
+      button { background: var(--secondary, rgba(255, 255, 255, 0.08)); color: var(--foreground, #e4e4e7); border: 1px solid var(--border, rgba(255, 255, 255, 0.14)); border-radius: 6px; padding: 2px 8px; font-size: 11px; cursor: pointer; }
     `;
 
     const panelEl = this.#document.createElement('aside');

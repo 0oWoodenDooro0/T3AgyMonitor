@@ -32,13 +32,14 @@ export class UnifiedTimelineSurface {
 
     const style = this.#document.createElement('style');
     style.textContent = `
-      :host { display: block; font-family: system-ui, sans-serif; font-size: 12px; }
-      .timeline-root { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
+      :host { display: block; font-family: system-ui, sans-serif; font-size: 12px; color: var(--foreground, #e4e4e7); }
+      .timeline-root { display: flex; flex-direction: column; gap: 8px; padding: 8px; border-radius: 8px; background: var(--popover, rgba(24, 24, 27, 0.94)); color: var(--foreground, #e4e4e7); border: 1px solid var(--border, rgba(255, 255, 255, 0.12)); }
       .timeline-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
       .timeline-body { display: flex; gap: 10px; }
       .turn-rail { display: flex; flex-direction: column; gap: 4px; min-width: 72px; }
       .timeline-main { flex: 1; display: flex; flex-direction: column; gap: 6px; }
       .timeline-step { padding: 4px 6px; border-radius: 6px; }
+      select, button { background: var(--secondary, rgba(255, 255, 255, 0.08)); color: var(--foreground, #e4e4e7); border: 1px solid var(--border, rgba(255, 255, 255, 0.14)); border-radius: 6px; padding: 2px 6px; font-size: 11px; }
       [aria-hidden="true"] { display: none; }
     `;
 
