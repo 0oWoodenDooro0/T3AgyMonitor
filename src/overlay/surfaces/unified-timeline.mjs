@@ -35,8 +35,8 @@ export class UnifiedTimelineSurface {
 
     const style = this.#document.createElement('style');
     style.textContent = `
-      :host { display: inline-flex; align-items: center; position: relative; margin-right: 6px; z-index: 50; font-family: system-ui, sans-serif; font-size: 12px; color: var(--foreground, #e4e4e7); flex-shrink: 0; }
-      .timeline-toggle { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 999px; background: var(--secondary, rgba(24, 24, 27, 0.85)); color: var(--foreground, #e4e4e7); border: 1px solid var(--border, rgba(255, 255, 255, 0.14)); font-size: 11px; cursor: pointer; white-space: nowrap; }
+      :host { display: inline-flex; align-items: center; position: relative; margin-right: 6px !important; z-index: 50; -webkit-app-region: no-drag !important; app-region: no-drag !important; font-family: system-ui, sans-serif; font-size: 12px; color: var(--foreground, #e4e4e7); flex-shrink: 0; }
+      .timeline-toggle { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 999px; -webkit-app-region: no-drag; app-region: no-drag; background: var(--secondary, rgba(24, 24, 27, 0.85)); color: var(--foreground, #e4e4e7); border: 1px solid var(--border, rgba(255, 255, 255, 0.14)); font-size: 11px; cursor: pointer; white-space: nowrap; }
       .timeline-root { position: fixed; top: 48px; right: 16px; width: 440px; max-height: 70vh; overflow-y: auto; z-index: 80; pointer-events: auto; display: flex; flex-direction: column; gap: 8px; padding: 8px; border-radius: 8px; background: var(--popover, rgba(24, 24, 27, 0.94)); color: var(--foreground, #e4e4e7); border: 1px solid var(--border, rgba(255, 255, 255, 0.12)); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); backdrop-filter: blur(8px); }
       [data-open="false"] .timeline-root { display: none; }
       .timeline-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }

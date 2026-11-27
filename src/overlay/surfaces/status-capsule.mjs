@@ -88,8 +88,8 @@ export class StatusCapsuleSurface {
 
     const style = this.#document.createElement('style');
     style.textContent = `
-      :host { display: inline-flex; position: relative; margin-right: 6px; z-index: 50; font-family: system-ui, sans-serif; font-size: 12px; color: var(--foreground, #e4e4e7); flex-shrink: 0; }
-      .capsule-bar { display: inline-flex; align-items: center; gap: 8px; padding: 3px 8px; border-radius: 999px; cursor: pointer; background: var(--secondary, rgba(24, 24, 27, 0.85)); border: 1px solid var(--border, rgba(255, 255, 255, 0.12)); color: var(--foreground, #e4e4e7); }
+      :host { display: inline-flex; position: relative; margin-right: 6px !important; z-index: 50; -webkit-app-region: no-drag !important; app-region: no-drag !important; font-family: system-ui, sans-serif; font-size: 12px; color: var(--foreground, #e4e4e7); flex-shrink: 0; }
+      .capsule-bar { display: inline-flex; align-items: center; gap: 8px; padding: 3px 8px; border-radius: 999px; cursor: pointer; -webkit-app-region: no-drag; app-region: no-drag; background: var(--secondary, rgba(24, 24, 27, 0.85)); border: 1px solid var(--border, rgba(255, 255, 255, 0.12)); color: var(--foreground, #e4e4e7); }
       .capsule-slots { display: inline-flex; align-items: center; gap: 8px; }
       .capsule-slot { white-space: nowrap; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--border, rgba(255, 255, 255, 0.12)); background: var(--secondary, rgba(255, 255, 255, 0.06)); font-size: 11px; }
       .hover-summary, .popover { padding: 8px; border-radius: 8px; background: var(--popover, rgba(24, 24, 27, 0.96)); color: var(--foreground, #e4e4e7); border: 1px solid var(--border, rgba(255, 255, 255, 0.12)); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); }

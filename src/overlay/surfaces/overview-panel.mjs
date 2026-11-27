@@ -32,7 +32,7 @@ export class OverviewPanelSurface {
 
     const style = this.#document.createElement('style');
     style.textContent = `
-      :host { display: inline-flex; align-items: center; position: relative; margin-right: 185px; margin-left: 6px; z-index: 50; font-family: system-ui, sans-serif; font-size: 12px; color: var(--foreground, #e4e4e7); flex-shrink: 0; }
+      :host { display: inline-flex; align-items: center; position: relative; margin-right: 185px !important; margin-left: 6px !important; z-index: 50; -webkit-app-region: no-drag !important; app-region: no-drag !important; font-family: system-ui, sans-serif; font-size: 12px; color: var(--foreground, #e4e4e7); flex-shrink: 0; }
       .overview-panel { display: inline-flex; align-items: center; position: relative; }
       .overview-header { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 8px; border-radius: 999px; background: var(--secondary, rgba(24, 24, 27, 0.85)); color: var(--foreground, #e4e4e7); border: 1px solid var(--border, rgba(255, 255, 255, 0.14)); font-size: 11px; white-space: nowrap; }
       .overview-panel[data-collapsed="true"] .overview-body { display: none; }
