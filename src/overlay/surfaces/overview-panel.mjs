@@ -32,12 +32,13 @@ export class OverviewPanelSurface {
 
     const style = this.#document.createElement('style');
     style.textContent = `
-      :host { display: block; position: fixed; top: 84px; right: 16px; z-index: 40; max-width: 320px; font-family: system-ui, sans-serif; font-size: 12px; color: var(--foreground, #e4e4e7); }
-      .overview-panel { display: flex; flex-direction: column; gap: 8px; max-height: calc(100vh - 104px); overflow-y: auto; padding: 8px 10px; border-radius: 8px; background: var(--popover, rgba(24, 24, 27, 0.94)); color: var(--foreground, #e4e4e7); border: 1px solid var(--border, rgba(255, 255, 255, 0.12)); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); backdrop-filter: blur(8px); }
+      :host { display: inline-flex; align-items: center; position: relative; margin-right: 185px; margin-left: 6px; z-index: 50; font-family: system-ui, sans-serif; font-size: 12px; color: var(--foreground, #e4e4e7); flex-shrink: 0; }
+      .overview-panel { display: inline-flex; align-items: center; position: relative; }
+      .overview-header { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 8px; border-radius: 999px; background: var(--secondary, rgba(24, 24, 27, 0.85)); color: var(--foreground, #e4e4e7); border: 1px solid var(--border, rgba(255, 255, 255, 0.14)); font-size: 11px; white-space: nowrap; }
       .overview-panel[data-collapsed="true"] .overview-body { display: none; }
-      .overview-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+      .overview-body { position: fixed; top: 48px; right: 16px; width: 320px; max-height: calc(100vh - 72px); overflow-y: auto; z-index: 80; pointer-events: auto; display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 8px; background: var(--popover, #18181b); color: var(--foreground, #e4e4e7); border: 1px solid var(--border, rgba(255, 255, 255, 0.16)); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); }
       .overview-row { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; }
-      button { background: var(--secondary, rgba(255, 255, 255, 0.08)); color: var(--foreground, #e4e4e7); border: 1px solid var(--border, rgba(255, 255, 255, 0.14)); border-radius: 6px; padding: 2px 8px; font-size: 11px; cursor: pointer; }
+      button { background: var(--secondary, rgba(255, 255, 255, 0.08)); color: var(--foreground, #e4e4e7); border: 1px solid var(--border, rgba(255, 255, 255, 0.14)); border-radius: 999px; padding: 1px 7px; font-size: 11px; cursor: pointer; }
     `;
 
     const panelEl = this.#document.createElement('aside');

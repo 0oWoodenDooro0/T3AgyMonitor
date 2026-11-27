@@ -38,6 +38,7 @@ export const DEFAULT_SURFACE_ANCHORS = Object.freeze({
     '[data-testid="overview-panel-anchor"]',
     '[data-testid="right-drawer-anchor"]',
     '[data-testid="thread-workspace"]',
+    'main[data-slot="sidebar-inset"] header',
     'main[data-slot="sidebar-inset"]',
     'main',
   ]),

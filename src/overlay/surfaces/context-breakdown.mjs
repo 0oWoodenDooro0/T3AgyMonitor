@@ -56,9 +56,9 @@ export class ContextBreakdownSurface {
 
     const style = this.#document.createElement('style');
     style.textContent = `
-      :host { display: inline-flex; align-items: center; position: relative; font-family: system-ui, sans-serif; font-size: 12px; color: var(--foreground, #e4e4e7); flex-shrink: 0; }
+      :host { display: inline-flex; align-items: center; position: relative; margin-right: 6px; z-index: 50; font-family: system-ui, sans-serif; font-size: 12px; color: var(--foreground, #e4e4e7); flex-shrink: 0; }
       .context-toggle { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 999px; background: var(--secondary, rgba(24, 24, 27, 0.85)); color: var(--foreground, #e4e4e7); border: 1px solid var(--border, rgba(255, 255, 255, 0.14)); font-size: 11px; cursor: pointer; white-space: nowrap; }
-      .breakdown-panel { position: fixed; top: 48px; right: 160px; width: 360px; max-height: 70vh; overflow-y: auto; z-index: 50; padding: 8px 10px; border-radius: 8px; background: var(--popover, rgba(24, 24, 27, 0.94)); color: var(--foreground, #e4e4e7); border: 1px solid var(--border, rgba(255, 255, 255, 0.12)); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); backdrop-filter: blur(8px); }
+      .breakdown-panel { position: fixed; top: 48px; right: 160px; width: 360px; max-height: 70vh; overflow-y: auto; z-index: 80; pointer-events: auto; padding: 8px 10px; border-radius: 8px; background: var(--popover, rgba(24, 24, 27, 0.94)); color: var(--foreground, #e4e4e7); border: 1px solid var(--border, rgba(255, 255, 255, 0.12)); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); backdrop-filter: blur(8px); }
       [data-open="false"] .breakdown-panel { display: none; }
       .breakdown-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
       .breakdown-row { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; }
