@@ -318,7 +318,7 @@ test('End-to-end: StateReader + TranscriptParser + Sidecar + OverlayRuntime rend
 
       const breakdownRoot = runtime.registry.get('context-breakdown').shadowRoot;
       assert.equal(breakdownRoot.querySelectorAll('[data-role="breakdown-row"]').length, 7);
-      assert.match(breakdownRoot.querySelector('[data-role="breakdown-total"]').textContent, /1000/);
+      assert.match(breakdownRoot.querySelector('[data-role="breakdown-total"]').textContent, /1500/);
 
       const timelineRoot = runtime.registry.get('unified-timeline').shadowRoot;
       assert.ok(timelineRoot.querySelectorAll('[data-role="timeline-step"]').length >= 4);
@@ -357,7 +357,7 @@ test('End-to-end: StateReader + TranscriptParser + Sidecar + OverlayRuntime rend
       );
       runtime.dispatchAction('refresh');
       await new Promise((r) => setTimeout(r, 20));
-      assert.match(breakdownRoot.querySelector('[data-role="breakdown-total"]').textContent, /1500/);
+      assert.match(breakdownRoot.querySelector('[data-role="breakdown-total"]').textContent, /2400/);
 
       // Verify composerRing contract alignment & subagent transcriptPath resolution
       const ringFill = runtime.registry
@@ -368,14 +368,14 @@ test('End-to-end: StateReader + TranscriptParser + Sidecar + OverlayRuntime rend
       const latestSnapshot = await app.buildSnapshot();
       assert.ok(latestSnapshot.composerRing);
       assert.equal(latestSnapshot.composerRing.mode, 'context_window');
-      assert.equal(latestSnapshot.contextBreakdowns['sub-1'].totalInputTokens, 400);
+      assert.equal(latestSnapshot.contextBreakdowns['sub-1'].totalInputTokens, 500);
       assert.ok(latestSnapshot.plannerResponse);
       assert.equal(latestSnapshot.plannerResponse.outputTokens, 300);
 
       // UI action round-trip 4: selectContextAgent -> switches ContextBreakdownSurface to sub-1
       runtime.dispatchAction('selectContextAgent', { agentId: 'sub-1' });
       await new Promise((r) => setTimeout(r, 20));
-      assert.match(breakdownRoot.querySelector('[data-role="breakdown-total"]').textContent, /400/);
+      assert.match(breakdownRoot.querySelector('[data-role="breakdown-total"]').textContent, /500/);
 
       // Verify default getOverlayScript on createApp produces a non-empty executable bundle
       const defaultApp = createApp({ configPath, dbPath, providersDir, ratesPath });

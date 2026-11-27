@@ -80,7 +80,7 @@ test('computeContextBreakdown produces exact 7 categories with residual clamped 
     'Checkpoints',
     'System & Tools Overhead',
   ]);
-  assert.equal(breakdown.totalInputTokens, 500);
+  assert.equal(breakdown.totalInputTokens, 750);
   assert.ok(breakdown.categories['System & Tools Overhead'] >= 0);
 
   // Verify clamping when sum of known categories exceeds input_tokens
@@ -112,7 +112,8 @@ test('computeTranscriptMetrics calculates cacheHitRate and returns null tok/s on
     },
   ];
   const zeroMetrics = computeTranscriptMetrics(zeroDurationEvents);
-  assert.equal(zeroMetrics.cacheHitRate, 0.25);
+  assert.equal(zeroMetrics.cacheHitRate, 250 / 1250);
+  assert.equal(zeroMetrics.latestContextTokens, 1250);
   assert.equal(zeroMetrics.tokensPerSecond, null);
 
   const negativeDurationEvents = [
@@ -140,6 +141,32 @@ test('computeTranscriptMetrics calculates cacheHitRate and returns null tok/s on
     },
   ];
   assert.equal(computeTranscriptMetrics(validEvents).tokensPerSecond, 25);
+});
+
+test('computeTranscriptMetrics and computeContextBreakdown handle Antigravity uncached input_tokens + cache_read_tokens', () => {
+  const events = [
+    { step_index: 0, type: 'USER_INPUT', content: 'Analyze the codebase', created_at: '2026-11-27T10:00:00Z' },
+    {
+      step_index: 1,
+      type: 'PLANNER_RESPONSE',
+      model: 'gemini-4-hydrogen-medium',
+      input_tokens: 2941,
+      cache_read_tokens: 256726,
+      output_tokens: 412,
+      created_at: '2026-11-27T10:00:04Z',
+    },
+  ];
+
+  const metrics = computeTranscriptMetrics(events);
+  assert.equal(metrics.latestInputTokens, 2941);
+  assert.equal(metrics.latestCacheReadTokens, 256726);
+  assert.equal(metrics.latestContextTokens, 259667);
+  assert.ok(Math.abs(metrics.cacheHitRate - 256726 / 259667) < 1e-9);
+  assert.ok(metrics.cacheHitRate < 1);
+
+  const breakdown = computeContextBreakdown(events);
+  assert.equal(breakdown.totalInputTokens, 259667);
+  assert.ok(breakdown.categories['System & Tools Overhead'] > 250000);
 });
 
 test('IncrementalTranscriptReader reads only newly appended lines across polls', async () => {

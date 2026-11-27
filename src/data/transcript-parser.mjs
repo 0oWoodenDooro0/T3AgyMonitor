@@ -80,7 +80,7 @@ export function computeContextBreakdown(events, { checkpoints = [] } = {}) {
     'System & Tools Overhead': 0,
   };
 
-  let latestInputTokens = 0;
+  let latestContextTokens = 0;
 
   for (const event of events) {
     if (event.type === 'USER_INPUT') {
@@ -90,7 +90,8 @@ export function computeContextBreakdown(events, { checkpoints = [] } = {}) {
         categories['User Messages'] += payloadTokens(event.content, event.tokens);
       }
     } else if (event.type === 'PLANNER_RESPONSE') {
-      latestInputTokens = toNonNegativeInt(event.input_tokens);
+      latestContextTokens =
+        toNonNegativeInt(event.input_tokens) + toNonNegativeInt(event.cache_read_tokens);
       const toolCallsTokens = Array.isArray(event.tool_calls)
         ? payloadTokens(event.tool_calls, event.tool_calls_tokens)
         : 0;
@@ -121,10 +122,10 @@ export function computeContextBreakdown(events, { checkpoints = [] } = {}) {
     categories['Subagent Notifications'] +
     categories.Checkpoints;
 
-  categories['System & Tools Overhead'] = Math.max(0, latestInputTokens - knownSum);
+  categories['System & Tools Overhead'] = Math.max(0, latestContextTokens - knownSum);
 
   return {
-    totalInputTokens: latestInputTokens,
+    totalInputTokens: latestContextTokens,
     categories,
   };
 }
@@ -159,6 +160,7 @@ export function computeTranscriptMetrics(events) {
       tokensPerSecond: null,
       latestInputTokens: 0,
       latestCacheReadTokens: 0,
+      latestContextTokens: 0,
       latestOutputTokens: 0,
       totalInputTokens: 0,
       totalCacheReadTokens: 0,
@@ -169,10 +171,11 @@ export function computeTranscriptMetrics(events) {
 
   const latestInputTokens = toNonNegativeInt(latestPlanner.input_tokens);
   const latestCacheReadTokens = toNonNegativeInt(latestPlanner.cache_read_tokens);
+  const latestContextTokens = latestInputTokens + latestCacheReadTokens;
   const latestOutputTokens = toNonNegativeInt(latestPlanner.output_tokens);
 
   const cacheHitRate =
-    latestInputTokens > 0 ? Math.min(1, latestCacheReadTokens / latestInputTokens) : 0;
+    latestContextTokens > 0 ? Math.min(1, latestCacheReadTokens / latestContextTokens) : 0;
 
   let tokensPerSecond = null;
   if (latestPlannerIndex > 0 && latestPlanner.created_at) {
@@ -193,6 +196,7 @@ export function computeTranscriptMetrics(events) {
     tokensPerSecond,
     latestInputTokens,
     latestCacheReadTokens,
+    latestContextTokens,
     latestOutputTokens,
     totalInputTokens,
     totalCacheReadTokens,

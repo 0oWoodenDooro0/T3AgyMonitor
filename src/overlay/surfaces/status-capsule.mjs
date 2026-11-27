@@ -27,7 +27,7 @@ function formatSlotValue(slot, metrics = {}) {
       return metrics.model ?? '—';
     case 'context':
       return typeof metrics.contextPercent === 'number'
-        ? `${Math.round(metrics.contextPercent)}% ctx`
+        ? `${metrics.contextPercent.toFixed(1)}% ctx`
         : '—';
     case 'cost':
       return typeof metrics.costUsd === 'number'
@@ -88,10 +88,11 @@ export class StatusCapsuleSurface {
 
     const style = this.#document.createElement('style');
     style.textContent = `
-      :host { display: inline-flex; position: relative; margin-right: 6px !important; z-index: 50; -webkit-app-region: no-drag !important; app-region: no-drag !important; font-family: system-ui, sans-serif; font-size: 12px; color: var(--foreground, #e4e4e7); flex-shrink: 0; }
-      .capsule-bar { display: inline-flex; align-items: center; gap: 8px; padding: 3px 8px; border-radius: 999px; cursor: pointer; -webkit-app-region: no-drag; app-region: no-drag; background: var(--secondary, rgba(24, 24, 27, 0.85)); border: 1px solid var(--border, rgba(255, 255, 255, 0.12)); color: var(--foreground, #e4e4e7); }
-      .capsule-slots { display: inline-flex; align-items: center; gap: 8px; }
-      .capsule-slot { white-space: nowrap; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--border, rgba(255, 255, 255, 0.12)); background: var(--secondary, rgba(255, 255, 255, 0.06)); font-size: 11px; }
+      :host { display: inline-flex; align-items: center; position: relative; margin-right: 6px !important; z-index: 50; -webkit-app-region: no-drag !important; app-region: no-drag !important; font-family: system-ui, sans-serif; font-size: 12px; color: var(--foreground, #e4e4e7); flex-shrink: 0; }
+      .capsule-bar { box-sizing: border-box; height: 26px; display: inline-flex; align-items: center; gap: 6px; padding: 0 8px; border-radius: 999px; cursor: pointer; -webkit-app-region: no-drag; app-region: no-drag; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.09); color: var(--foreground, #e4e4e7); font-variant-numeric: tabular-nums; transition: background 120ms ease, border-color 120ms ease; }
+      .capsule-bar:hover { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.16); }
+      .capsule-slots { display: inline-flex; align-items: center; gap: 6px; }
+      .capsule-slot { white-space: nowrap; padding: 1px 6px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.07); background: rgba(255, 255, 255, 0.04); font-size: 11px; line-height: 1.3; }
       .hover-summary, .popover { padding: 8px; border-radius: 8px; background: var(--popover, rgba(24, 24, 27, 0.96)); color: var(--foreground, #e4e4e7); border: 1px solid var(--border, rgba(255, 255, 255, 0.12)); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); }
       .hover-summary { position: absolute; top: 100%; left: 0; margin-top: 6px; z-index: 80; }
       .capsule-popover { position: fixed; top: 48px; left: 320px; z-index: 80; pointer-events: auto; max-height: 75vh; overflow-y: auto; }

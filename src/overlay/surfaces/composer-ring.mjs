@@ -35,10 +35,10 @@ export class ComposerRingSurface {
     const style = this.#document.createElement('style');
     style.textContent = `
       :host { display: block; pointer-events: none; color: var(--foreground, #e4e4e7); }
-      .ring-frame { position: relative; border-radius: 12px; padding: 2px; }
-      .ring-track { height: 3px; width: 100%; border-radius: 999px; overflow: hidden; background: var(--secondary, rgba(255, 255, 255, 0.1)); }
-      .ring-fill { height: 100%; background: var(--primary, #3b82f6); transition: width 150ms ease; }
-      .ring-label { font-family: system-ui, sans-serif; font-size: 11px; margin-top: 2px; color: var(--muted-foreground, rgba(228, 228, 231, 0.72)); }
+      .ring-frame { position: relative; display: flex; flex-direction: column; gap: 3px; padding: 0; background: transparent; border: none; }
+      .ring-track { height: 3px; width: 100%; border-radius: 999px; overflow: hidden; background: rgba(255, 255, 255, 0.08); }
+      .ring-fill { height: 100%; border-radius: 999px; background: var(--primary, #3b82f6); transition: width 150ms ease; }
+      .ring-label { font-family: system-ui, sans-serif; font-size: 10px; line-height: 1.2; text-align: right; font-variant-numeric: tabular-nums; color: var(--muted-foreground, rgba(228, 228, 231, 0.58)); }
     `;
 
     const ringEl = this.#document.createElement('div');
@@ -88,12 +88,20 @@ export class ComposerRingSurface {
     const percent = clampPercent(rawPercent);
     const rounded = Math.round(percent);
     const modeLabel = ringState.label ?? MODE_LABELS[mode] ?? 'Context Window';
+    const formatPct = (n) => (Number.isInteger(n) ? `${n}%` : `${n.toFixed(1)}%`);
 
     this.#ringEl.setAttribute('data-mode', mode);
     this.#fillEl.setAttribute('aria-valuenow', String(rounded));
     this.#fillEl.setAttribute('data-percent', String(rounded));
     this.#fillEl.style.width = `${rounded}%`;
-    this.#labelEl.textContent = `${modeLabel}: ${rounded}%`;
+    if (mode === 'context_window') {
+      const usedPct = clampPercent(
+        Number.isFinite(Number(ringState.usedPercent)) ? Number(ringState.usedPercent) : 100 - percent,
+      );
+      this.#labelEl.textContent = `Context ${formatPct(usedPct)} used · ${formatPct(percent)} left`;
+    } else {
+      this.#labelEl.textContent = `${modeLabel}: ${formatPct(rounded)}`;
+    }
   }
 
   unmount() {

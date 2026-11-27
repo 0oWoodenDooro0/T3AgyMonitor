@@ -3,10 +3,37 @@ function formatElapsedMs(ms) {
   return `${(safe / 1000).toFixed(1)}s`;
 }
 
+function resolveRoleLabel(entry) {
+  if (entry.agentKind && entry.agentKind !== 'main') {
+    return 'Subagent';
+  }
+  switch (entry.type) {
+    case 'USER_INPUT':
+      return 'User';
+    case 'PLANNER_RESPONSE':
+      return 'Assistant';
+    case 'GENERIC':
+      return 'Tool';
+    case 'SYSTEM_MESSAGE':
+      return 'System';
+    default:
+      return entry.type ?? 'Event';
+  }
+}
+
+function formatRelativeTime(entry, turnStartMs) {
+  const entryMs = Number(entry?.timestampMs);
+  if (Number.isFinite(entryMs) && entryMs > 0 && Number.isFinite(turnStartMs) && turnStartMs > 0) {
+    const delta = Math.max(0, entryMs - turnStartMs);
+    return `+${(delta / 1000).toFixed(1)}s`;
+  }
+  return entry?.type ?? '';
+}
+
 /**
  * Shadow DOM Unified Timeline surface rendering chronological merged steps
- * with turn rail, per-agent filter, and inline expansion for running
- * subagents, delegated tasks, and swarm workers.
+ * with turn rail, per-agent filter, collapsible turn cards, and inline expansion
+ * for running subagents, delegated tasks, and swarm workers.
  */
 export class UnifiedTimelineSurface {
   #document;
@@ -14,6 +41,7 @@ export class UnifiedTimelineSurface {
   #shadowRoot = null;
   #rootEl = null;
   #toggleEl = null;
+  #stepCountEl = null;
   #filterEl = null;
   #railEl = null;
   #stepsEl = null;
@@ -21,6 +49,7 @@ export class UnifiedTimelineSurface {
   #open = false;
   #selectedAgentId = 'all';
   #selectedTurnId = null;
+  #collapsedTurns = new Map();
   #expandedTasks = new Set();
   #lastSnapshot = {};
 
@@ -36,15 +65,27 @@ export class UnifiedTimelineSurface {
     const style = this.#document.createElement('style');
     style.textContent = `
       :host { display: inline-flex; align-items: center; position: relative; margin-right: 6px !important; z-index: 50; -webkit-app-region: no-drag !important; app-region: no-drag !important; font-family: system-ui, sans-serif; font-size: 12px; color: var(--foreground, #e4e4e7); flex-shrink: 0; }
-      .timeline-toggle { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 999px; -webkit-app-region: no-drag; app-region: no-drag; background: var(--secondary, rgba(24, 24, 27, 0.85)); color: var(--foreground, #e4e4e7); border: 1px solid var(--border, rgba(255, 255, 255, 0.14)); font-size: 11px; cursor: pointer; white-space: nowrap; }
-      .timeline-root { position: fixed; top: 48px; right: 16px; width: 440px; max-height: 70vh; overflow-y: auto; z-index: 80; pointer-events: auto; display: flex; flex-direction: column; gap: 8px; padding: 8px; border-radius: 8px; background: var(--popover, rgba(24, 24, 27, 0.94)); color: var(--foreground, #e4e4e7); border: 1px solid var(--border, rgba(255, 255, 255, 0.12)); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); backdrop-filter: blur(8px); }
+      .timeline-toggle { box-sizing: border-box; display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 999px; -webkit-app-region: no-drag; app-region: no-drag; background: rgba(255, 255, 255, 0.04); color: var(--foreground, #e4e4e7); border: 1px solid rgba(255, 255, 255, 0.09); font-size: 11px; font-variant-numeric: tabular-nums; cursor: pointer; white-space: nowrap; transition: background 120ms ease, border-color 120ms ease; }
+      .timeline-toggle:hover { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.16); }
+      .timeline-root { position: fixed; top: 48px; right: 16px; width: 460px; max-height: 70vh; overflow-y: auto; z-index: 80; pointer-events: auto; display: flex; flex-direction: column; gap: 8px; padding: 0 10px 10px; border-radius: 10px; background: var(--popover, rgba(20, 20, 23, 0.96)); color: var(--foreground, #e4e4e7); border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45); backdrop-filter: blur(10px); font-variant-numeric: tabular-nums; }
       [data-open="false"] .timeline-root { display: none; }
-      .timeline-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+      .timeline-header { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 0 8px; background: var(--popover, rgba(20, 20, 23, 0.98)); border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+      .timeline-title-group { display: inline-flex; align-items: center; gap: 6px; }
+      .timeline-title { font-size: 12px; font-weight: 600; }
+      .timeline-count-badge { padding: 1px 6px; border-radius: 999px; font-size: 10px; background: rgba(255, 255, 255, 0.07); color: var(--muted-foreground, rgba(228, 228, 231, 0.72)); }
       .timeline-body { display: flex; gap: 10px; }
-      .turn-rail { display: flex; flex-direction: column; gap: 4px; min-width: 72px; }
-      .timeline-main { flex: 1; display: flex; flex-direction: column; gap: 6px; }
-      .timeline-step { padding: 4px 6px; border-radius: 6px; }
-      .timeline-root select, .timeline-root button { background: var(--secondary, rgba(255, 255, 255, 0.08)); color: var(--foreground, #e4e4e7); border: 1px solid var(--border, rgba(255, 255, 255, 0.14)); border-radius: 6px; padding: 2px 6px; font-size: 11px; }
+      .turn-rail { display: flex; flex-direction: column; gap: 4px; min-width: 76px; }
+      .turn-rail button[data-active="true"] { background: rgba(255, 255, 255, 0.14); border-color: rgba(255, 255, 255, 0.28); }
+      .timeline-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+      .turn-card { display: flex; flex-direction: column; gap: 4px; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; background: rgba(255, 255, 255, 0.02); padding: 6px; }
+      .turn-card-header { display: flex; align-items: center; justify-content: space-between; width: 100%; background: transparent !important; border: none !important; padding: 2px 4px !important; text-align: left; cursor: pointer; font-weight: 500; color: var(--foreground, #e4e4e7); }
+      .turn-card-steps { display: flex; flex-direction: column; gap: 3px; }
+      .turn-card[data-collapsed="true"] .turn-card-steps { display: none; }
+      .timeline-step { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 6px; padding: 3px 6px; border-radius: 6px; background: rgba(255, 255, 255, 0.03); font-size: 11px; }
+      .step-role-pill { padding: 1px 6px; border-radius: 999px; font-size: 10px; font-weight: 500; background: rgba(255, 255, 255, 0.08); color: var(--foreground, #e4e4e7); white-space: nowrap; }
+      .step-summary { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: rgba(228, 228, 231, 0.85); }
+      .step-time { font-size: 10px; color: var(--muted-foreground, rgba(228, 228, 231, 0.55)); white-space: nowrap; }
+      .timeline-root select, .timeline-root button { background: rgba(255, 255, 255, 0.06); color: var(--foreground, #e4e4e7); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 6px; padding: 2px 6px; font-size: 11px; }
       [aria-hidden="true"] { display: none; }
     `;
 
@@ -68,9 +109,21 @@ export class UnifiedTimelineSurface {
     const header = this.#document.createElement('div');
     header.className = 'timeline-header';
 
+    const titleGroup = this.#document.createElement('div');
+    titleGroup.className = 'timeline-title-group';
+
     const title = this.#document.createElement('span');
     title.setAttribute('data-role', 'timeline-title');
+    title.className = 'timeline-title';
     title.textContent = 'Unified Timeline';
+
+    const stepCountEl = this.#document.createElement('span');
+    stepCountEl.setAttribute('data-role', 'timeline-step-count');
+    stepCountEl.className = 'timeline-count-badge';
+    stepCountEl.textContent = '0 steps';
+
+    titleGroup.appendChild(title);
+    titleGroup.appendChild(stepCountEl);
 
     const filterEl = this.#document.createElement('select');
     filterEl.setAttribute('data-role', 'agent-filter');
@@ -96,7 +149,7 @@ export class UnifiedTimelineSurface {
     const stepsEl = this.#document.createElement('div');
     stepsEl.setAttribute('data-role', 'timeline-steps');
 
-    header.appendChild(title);
+    header.appendChild(titleGroup);
     header.appendChild(filterEl);
     mainCol.appendChild(runningEl);
     mainCol.appendChild(stepsEl);
@@ -112,6 +165,7 @@ export class UnifiedTimelineSurface {
 
     this.#rootEl = root;
     this.#toggleEl = toggleEl;
+    this.#stepCountEl = stepCountEl;
     this.#filterEl = filterEl;
     this.#railEl = railEl;
     this.#stepsEl = stepsEl;
@@ -159,7 +213,7 @@ export class UnifiedTimelineSurface {
       const opt = this.#document.createElement('option');
       opt.value = agent.agentId;
       opt.setAttribute('value', agent.agentId);
-      opt.textContent = agent.agentLabel ?? agent.agentId;
+      opt.textContent = agent.agentLabel ?? agent.label ?? agent.agentId;
       this.#filterEl.appendChild(opt);
     }
     this.#filterEl.value = this.#selectedAgentId;
@@ -181,9 +235,12 @@ export class UnifiedTimelineSurface {
     const visibleTurns = this.#selectedTurnId
       ? turns.filter((t) => t.turnId === this.#selectedTurnId)
       : turns;
+    const latestTurnId = turns.at(-1)?.turnId ?? null;
 
     this.#runningEl.innerHTML = '';
     this.#stepsEl.innerHTML = '';
+
+    let totalVisibleSteps = 0;
 
     for (const turn of visibleTurns) {
       const tasks = Array.isArray(turn.runningTasks) ? turn.runningTasks : [];
@@ -228,6 +285,35 @@ export class UnifiedTimelineSurface {
           ? entries
           : entries.filter((entry) => entry.agentId === this.#selectedAgentId);
 
+      if (filteredEntries.length === 0) {
+        continue;
+      }
+
+      totalVisibleSteps += filteredEntries.length;
+
+      const defaultCollapsed = turn.turnId !== latestTurnId && this.#selectedTurnId !== turn.turnId;
+      const isCollapsed = this.#collapsedTurns.has(turn.turnId)
+        ? this.#collapsedTurns.get(turn.turnId)
+        : defaultCollapsed;
+
+      const card = this.#document.createElement('div');
+      card.className = 'turn-card';
+      card.setAttribute('data-role', 'turn-card');
+      card.setAttribute('data-turn-id', turn.turnId);
+      card.setAttribute('data-collapsed', isCollapsed ? 'true' : 'false');
+
+      const cardHeader = this.#document.createElement('button');
+      cardHeader.className = 'turn-card-header';
+      cardHeader.setAttribute('data-role', 'turn-card-toggle');
+      cardHeader.textContent = `Turn ${turn.turnIndex} · ${filteredEntries.length} ${filteredEntries.length === 1 ? 'step' : 'steps'} ${isCollapsed ? '▾' : '▴'}`;
+      cardHeader.addEventListener('click', () => {
+        this.#collapsedTurns.set(turn.turnId, !isCollapsed);
+        this.#render();
+      });
+
+      const cardSteps = this.#document.createElement('div');
+      cardSteps.className = 'turn-card-steps';
+
       for (const entry of filteredEntries) {
         const stepEl = this.#document.createElement('div');
         stepEl.className = 'timeline-step';
@@ -235,9 +321,32 @@ export class UnifiedTimelineSurface {
         stepEl.setAttribute('data-agent-id', entry.agentId);
         stepEl.setAttribute('data-turn-id', turn.turnId);
         stepEl.setAttribute('data-depth', String(entry.depth ?? 0));
-        stepEl.textContent = `[${entry.agentLabel ?? entry.agentId}] ${entry.type}: ${entry.summary ?? ''}`;
-        this.#stepsEl.appendChild(stepEl);
+
+        const roleEl = this.#document.createElement('span');
+        roleEl.className = 'step-role-pill';
+        roleEl.textContent = resolveRoleLabel(entry);
+
+        const summaryEl = this.#document.createElement('span');
+        summaryEl.className = 'step-summary';
+        summaryEl.textContent = entry.summary ?? '';
+
+        const timeEl = this.#document.createElement('span');
+        timeEl.className = 'step-time';
+        timeEl.textContent = formatRelativeTime(entry, turn.startMs);
+
+        stepEl.appendChild(roleEl);
+        stepEl.appendChild(summaryEl);
+        stepEl.appendChild(timeEl);
+        cardSteps.appendChild(stepEl);
       }
+
+      card.appendChild(cardHeader);
+      card.appendChild(cardSteps);
+      this.#stepsEl.appendChild(card);
+    }
+
+    if (this.#stepCountEl) {
+      this.#stepCountEl.textContent = `${totalVisibleSteps} ${totalVisibleSteps === 1 ? 'step' : 'steps'}`;
     }
   }
 

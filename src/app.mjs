@@ -149,9 +149,12 @@ export function createApp({
       ? await quotaProvider.getQuota({ model: transcriptMetrics.model })
       : null;
 
+    const latestContextTokens =
+      transcriptMetrics.latestContextTokens ?? transcriptMetrics.latestInputTokens;
+
     const ring = computeComposerRingState({
       ringMode: currentConfig.ringMode,
-      contextTokens: transcriptMetrics.latestInputTokens,
+      contextTokens: latestContextTokens,
       maxContextTokens,
       softBudgetUsd: currentConfig.softBudgetUsd,
       softBudgetTokens: currentConfig.softBudgetTokens,
@@ -185,7 +188,7 @@ export function createApp({
 
     const contextPercent =
       maxContextTokens > 0
-        ? Math.min(100, (transcriptMetrics.latestInputTokens / maxContextTokens) * 100)
+        ? Math.min(100, (latestContextTokens / maxContextTokens) * 100)
         : 0;
 
     let latestPlanner = null;
