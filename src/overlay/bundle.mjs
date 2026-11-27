@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 
 const MODULE_SPECS = [
@@ -110,6 +111,12 @@ function getCoreBundleSource() {
 export function buildOverlayScript(options = {}) {
   const serializedOptions = JSON.stringify(options ?? {});
   const core = getCoreBundleSource();
+  const bundleHash = crypto
+    .createHash('sha1')
+    .update(core)
+    .update(serializedOptions)
+    .digest('hex')
+    .slice(0, 12);
   return [
     '(() => {',
     '  const summarize = (rt, alreadyInstalled) => ({',
@@ -119,12 +126,18 @@ export function buildOverlayScript(options = {}) {
     '      ? rt.registry.list().filter((a) => a.isMounted).map((a) => a.surfaceId)',
     '      : [],',
     '  });',
-    '  if (globalThis.__t3AgyMonitorRuntime) {',
+    `  const nextHash = ${JSON.stringify(bundleHash)};`,
+    '  if (globalThis.__t3AgyMonitorRuntime && globalThis.__t3AgyMonitorBundleHash === nextHash) {',
     '    return summarize(globalThis.__t3AgyMonitorRuntime, true);',
+    '  }',
+    '  if (globalThis.__t3AgyMonitorRuntime) {',
+    '    try { globalThis.__t3AgyMonitorRuntime.destroy?.(); } catch {}',
+    '    delete globalThis.__t3AgyMonitorRuntime;',
     '  }',
     core,
     `  const runtime = __mod_index.installOverlayRuntime(${serializedOptions});`,
     '  globalThis.__t3AgyMonitorRuntime = runtime;',
+    '  globalThis.__t3AgyMonitorBundleHash = nextHash;',
     '  return summarize(runtime, false);',
     '})();',
   ].join('\n');
