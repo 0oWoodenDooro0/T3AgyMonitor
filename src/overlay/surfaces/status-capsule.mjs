@@ -89,9 +89,12 @@ export class StatusCapsuleSurface {
     const style = this.#document.createElement('style');
     style.textContent = `
       :host { display: inline-flex; position: relative; font-family: system-ui, sans-serif; font-size: 12px; color: var(--foreground, #e4e4e7); flex-shrink: 0; }
-      .capsule-bar { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 999px; cursor: pointer; background: var(--secondary, rgba(24, 24, 27, 0.85)); border: 1px solid var(--border, rgba(255, 255, 255, 0.12)); color: var(--foreground, #e4e4e7); }
-      .capsule-slot { white-space: nowrap; }
-      .hover-summary, .popover { position: absolute; top: 100%; left: 0; margin-top: 6px; padding: 8px; border-radius: 8px; z-index: 9999; background: var(--popover, rgba(24, 24, 27, 0.96)); color: var(--foreground, #e4e4e7); border: 1px solid var(--border, rgba(255, 255, 255, 0.12)); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); }
+      .capsule-bar { display: inline-flex; align-items: center; gap: 8px; padding: 3px 8px; border-radius: 999px; cursor: pointer; background: var(--secondary, rgba(24, 24, 27, 0.85)); border: 1px solid var(--border, rgba(255, 255, 255, 0.12)); color: var(--foreground, #e4e4e7); }
+      .capsule-slots { display: inline-flex; align-items: center; gap: 8px; }
+      .capsule-slot { white-space: nowrap; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--border, rgba(255, 255, 255, 0.12)); background: var(--secondary, rgba(255, 255, 255, 0.06)); font-size: 11px; }
+      .hover-summary, .popover { padding: 8px; border-radius: 8px; background: var(--popover, rgba(24, 24, 27, 0.96)); color: var(--foreground, #e4e4e7); border: 1px solid var(--border, rgba(255, 255, 255, 0.12)); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); }
+      .hover-summary { position: absolute; top: 100%; left: 0; margin-top: 6px; z-index: 60; }
+      .capsule-popover { position: fixed; top: 48px; left: 320px; z-index: 60; max-height: 75vh; overflow-y: auto; }
       [aria-hidden="true"] { display: none; }
     `;
 
@@ -104,6 +107,7 @@ export class StatusCapsuleSurface {
 
     const slotsEl = this.#document.createElement('div');
     slotsEl.setAttribute('data-role', 'capsule-slots');
+    slotsEl.className = 'capsule-slots';
     bar.appendChild(slotsEl);
 
     const badgeEl = this.#document.createElement('span');
@@ -118,7 +122,7 @@ export class StatusCapsuleSurface {
 
     const popoverEl = this.#document.createElement('div');
     popoverEl.setAttribute('data-role', 'popover');
-    popoverEl.className = 'popover';
+    popoverEl.className = 'popover capsule-popover';
     popoverEl.setAttribute('aria-hidden', 'true');
 
     const slotListEl = this.#document.createElement('div');

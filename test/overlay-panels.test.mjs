@@ -275,6 +275,14 @@ test('ContextBreakdownSurface renders all 7 exact categories and switches betwee
   const surface = new ContextBreakdownSurface({ document });
   surface.mount(shadowRoot);
 
+  const root = shadowRoot.querySelector('[data-role="context-breakdown-root"]');
+  assert.equal(root.getAttribute('data-open'), 'false');
+  const toggleBtn = shadowRoot.querySelector('[data-role="context-toggle"]');
+  assert.ok(toggleBtn);
+  assert.ok(shadowRoot.querySelector('[data-role="context-breakdown"]'));
+  toggleBtn.dispatchEvent(new MockEvent('click'));
+  assert.equal(root.getAttribute('data-open'), 'true');
+
   surface.update({
     contextBreakdown: {
       totalInputTokens: 1000,
@@ -360,6 +368,14 @@ test('UnifiedTimelineSurface renders turn rail, per-agent filter, merged steps, 
     dispatchAction: (type, payload) => actions.push({ type, payload }),
   });
   surface.mount(shadowRoot);
+
+  const timelineRoot = shadowRoot.querySelector('[data-role="unified-timeline-root"]');
+  assert.equal(timelineRoot.getAttribute('data-open'), 'false');
+  const timelineToggle = shadowRoot.querySelector('[data-role="timeline-toggle"]');
+  assert.ok(timelineToggle);
+  assert.ok(shadowRoot.querySelector('[data-role="unified-timeline"]'));
+  timelineToggle.dispatchEvent(new MockEvent('click'));
+  assert.equal(timelineRoot.getAttribute('data-open'), 'true');
 
   surface.update({
     timeline: {

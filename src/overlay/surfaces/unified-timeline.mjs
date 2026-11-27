@@ -12,10 +12,13 @@ export class UnifiedTimelineSurface {
   #document;
   #dispatchAction;
   #shadowRoot = null;
+  #rootEl = null;
+  #toggleEl = null;
   #filterEl = null;
   #railEl = null;
   #stepsEl = null;
   #runningEl = null;
+  #open = false;
   #selectedAgentId = 'all';
   #selectedTurnId = null;
   #expandedTasks = new Set();
@@ -32,20 +35,35 @@ export class UnifiedTimelineSurface {
 
     const style = this.#document.createElement('style');
     style.textContent = `
-      :host { display: block; font-family: system-ui, sans-serif; font-size: 12px; color: var(--foreground, #e4e4e7); }
-      .timeline-root { display: flex; flex-direction: column; gap: 8px; padding: 8px; border-radius: 8px; background: var(--popover, rgba(24, 24, 27, 0.94)); color: var(--foreground, #e4e4e7); border: 1px solid var(--border, rgba(255, 255, 255, 0.12)); }
+      :host { display: inline-flex; align-items: center; position: relative; font-family: system-ui, sans-serif; font-size: 12px; color: var(--foreground, #e4e4e7); flex-shrink: 0; }
+      .timeline-toggle { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 999px; background: var(--secondary, rgba(24, 24, 27, 0.85)); color: var(--foreground, #e4e4e7); border: 1px solid var(--border, rgba(255, 255, 255, 0.14)); font-size: 11px; cursor: pointer; white-space: nowrap; }
+      .timeline-root { position: fixed; top: 48px; right: 16px; width: 440px; max-height: 70vh; overflow-y: auto; z-index: 50; display: flex; flex-direction: column; gap: 8px; padding: 8px; border-radius: 8px; background: var(--popover, rgba(24, 24, 27, 0.94)); color: var(--foreground, #e4e4e7); border: 1px solid var(--border, rgba(255, 255, 255, 0.12)); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); backdrop-filter: blur(8px); }
+      [data-open="false"] .timeline-root { display: none; }
       .timeline-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
       .timeline-body { display: flex; gap: 10px; }
       .turn-rail { display: flex; flex-direction: column; gap: 4px; min-width: 72px; }
       .timeline-main { flex: 1; display: flex; flex-direction: column; gap: 6px; }
       .timeline-step { padding: 4px 6px; border-radius: 6px; }
-      select, button { background: var(--secondary, rgba(255, 255, 255, 0.08)); color: var(--foreground, #e4e4e7); border: 1px solid var(--border, rgba(255, 255, 255, 0.14)); border-radius: 6px; padding: 2px 6px; font-size: 11px; }
+      .timeline-root select, .timeline-root button { background: var(--secondary, rgba(255, 255, 255, 0.08)); color: var(--foreground, #e4e4e7); border: 1px solid var(--border, rgba(255, 255, 255, 0.14)); border-radius: 6px; padding: 2px 6px; font-size: 11px; }
       [aria-hidden="true"] { display: none; }
     `;
 
     const root = this.#document.createElement('div');
     root.setAttribute('data-role', 'unified-timeline-root');
-    root.className = 'timeline-root';
+    root.setAttribute('data-open', this.#open ? 'true' : 'false');
+
+    const toggleEl = this.#document.createElement('button');
+    toggleEl.setAttribute('data-role', 'timeline-toggle');
+    toggleEl.className = 'timeline-toggle';
+    toggleEl.textContent = 'Timeline';
+    toggleEl.addEventListener('click', () => {
+      this.#open = !this.#open;
+      this.#syncOpen();
+    });
+
+    const panel = this.#document.createElement('div');
+    panel.setAttribute('data-role', 'unified-timeline');
+    panel.className = 'timeline-root';
 
     const header = this.#document.createElement('div');
     header.className = 'timeline-header';
@@ -84,16 +102,30 @@ export class UnifiedTimelineSurface {
     mainCol.appendChild(stepsEl);
     body.appendChild(railEl);
     body.appendChild(mainCol);
-    root.appendChild(header);
-    root.appendChild(body);
+    panel.appendChild(header);
+    panel.appendChild(body);
+    root.appendChild(toggleEl);
+    root.appendChild(panel);
 
     shadowRoot.appendChild(style);
     shadowRoot.appendChild(root);
 
+    this.#rootEl = root;
+    this.#toggleEl = toggleEl;
     this.#filterEl = filterEl;
     this.#railEl = railEl;
     this.#stepsEl = stepsEl;
     this.#runningEl = runningEl;
+    this.#syncOpen();
+  }
+
+  #syncOpen() {
+    if (this.#rootEl) {
+      this.#rootEl.setAttribute('data-open', this.#open ? 'true' : 'false');
+    }
+    if (this.#toggleEl) {
+      this.#toggleEl.setAttribute('aria-expanded', this.#open ? 'true' : 'false');
+    }
   }
 
   update(snapshot = {}) {

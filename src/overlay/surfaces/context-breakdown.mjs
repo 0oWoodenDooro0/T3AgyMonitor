@@ -36,9 +36,12 @@ export class ContextBreakdownSurface {
   #document;
   #dispatchAction;
   #shadowRoot = null;
+  #rootEl = null;
+  #toggleEl = null;
   #switcherEl = null;
   #totalEl = null;
   #rowsEl = null;
+  #open = false;
   #selectedAgentId = 'main';
   #lastSnapshot = {};
 
@@ -53,8 +56,10 @@ export class ContextBreakdownSurface {
 
     const style = this.#document.createElement('style');
     style.textContent = `
-      :host { display: inline-block; font-family: system-ui, sans-serif; font-size: 12px; color: var(--foreground, #e4e4e7); }
-      .breakdown-panel { padding: 8px 10px; border-radius: 8px; background: var(--popover, rgba(24, 24, 27, 0.94)); color: var(--foreground, #e4e4e7); border: 1px solid var(--border, rgba(255, 255, 255, 0.12)); }
+      :host { display: inline-flex; align-items: center; position: relative; font-family: system-ui, sans-serif; font-size: 12px; color: var(--foreground, #e4e4e7); flex-shrink: 0; }
+      .context-toggle { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 999px; background: var(--secondary, rgba(24, 24, 27, 0.85)); color: var(--foreground, #e4e4e7); border: 1px solid var(--border, rgba(255, 255, 255, 0.14)); font-size: 11px; cursor: pointer; white-space: nowrap; }
+      .breakdown-panel { position: fixed; top: 48px; right: 160px; width: 360px; max-height: 70vh; overflow-y: auto; z-index: 50; padding: 8px 10px; border-radius: 8px; background: var(--popover, rgba(24, 24, 27, 0.94)); color: var(--foreground, #e4e4e7); border: 1px solid var(--border, rgba(255, 255, 255, 0.12)); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); backdrop-filter: blur(8px); }
+      [data-open="false"] .breakdown-panel { display: none; }
       .breakdown-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
       .breakdown-row { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; }
       select { background: var(--secondary, rgba(255, 255, 255, 0.08)); color: var(--foreground, #e4e4e7); border: 1px solid var(--border, rgba(255, 255, 255, 0.14)); border-radius: 6px; padding: 2px 6px; font-size: 11px; }
@@ -62,7 +67,20 @@ export class ContextBreakdownSurface {
 
     const root = this.#document.createElement('div');
     root.setAttribute('data-role', 'context-breakdown-root');
-    root.className = 'breakdown-panel';
+    root.setAttribute('data-open', this.#open ? 'true' : 'false');
+
+    const toggleEl = this.#document.createElement('button');
+    toggleEl.setAttribute('data-role', 'context-toggle');
+    toggleEl.className = 'context-toggle';
+    toggleEl.textContent = 'Context';
+    toggleEl.addEventListener('click', () => {
+      this.#open = !this.#open;
+      this.#syncOpen();
+    });
+
+    const panel = this.#document.createElement('div');
+    panel.setAttribute('data-role', 'context-breakdown');
+    panel.className = 'breakdown-panel';
 
     const header = this.#document.createElement('div');
     header.className = 'breakdown-header';
@@ -87,16 +105,30 @@ export class ContextBreakdownSurface {
 
     header.appendChild(title);
     header.appendChild(switcherEl);
-    root.appendChild(header);
-    root.appendChild(totalEl);
-    root.appendChild(rowsEl);
+    panel.appendChild(header);
+    panel.appendChild(totalEl);
+    panel.appendChild(rowsEl);
+    root.appendChild(toggleEl);
+    root.appendChild(panel);
 
     shadowRoot.appendChild(style);
     shadowRoot.appendChild(root);
 
+    this.#rootEl = root;
+    this.#toggleEl = toggleEl;
     this.#switcherEl = switcherEl;
     this.#totalEl = totalEl;
     this.#rowsEl = rowsEl;
+    this.#syncOpen();
+  }
+
+  #syncOpen() {
+    if (this.#rootEl) {
+      this.#rootEl.setAttribute('data-open', this.#open ? 'true' : 'false');
+    }
+    if (this.#toggleEl) {
+      this.#toggleEl.setAttribute('aria-expanded', this.#open ? 'true' : 'false');
+    }
   }
 
   update(snapshot = {}) {
