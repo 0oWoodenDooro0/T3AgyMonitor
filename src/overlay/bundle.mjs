@@ -24,9 +24,23 @@ const MODULE_SPECS = [
     exports: ['DEFAULT_BINDING_NAME', 'DEFAULT_STATE_RECEIVER', 'OverlayRuntime'],
   },
   {
+    file: './surfaces/context-breakdown.mjs',
+    varName: '__mod_context_breakdown',
+    imports: [],
+    exports: [
+      'ContextBreakdownSurface',
+      'CONTEXT_CATEGORIES',
+      'CATEGORY_COLORS',
+      'buildBreakdownStats',
+      'formatTokenCount',
+    ],
+  },
+  {
     file: './surfaces/status-capsule.mjs',
     varName: '__mod_status_capsule',
-    imports: [],
+    imports: [
+      'const { buildBreakdownStats, formatTokenCount } = __mod_context_breakdown;',
+    ],
     exports: ['StatusCapsuleSurface', 'clampCapsuleSlots'],
   },
   {
@@ -40,12 +54,6 @@ const MODULE_SPECS = [
     varName: '__mod_stage_progress',
     imports: [],
     exports: ['StageProgressSurface'],
-  },
-  {
-    file: './surfaces/context-breakdown.mjs',
-    varName: '__mod_context_breakdown',
-    imports: [],
-    exports: ['ContextBreakdownSurface', 'CONTEXT_CATEGORIES'],
   },
   {
     file: './surfaces/unified-timeline.mjs',

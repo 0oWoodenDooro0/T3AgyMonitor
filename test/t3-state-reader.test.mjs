@@ -410,3 +410,60 @@ test('T3StateReader resolves delegated subagent conversationId and transcriptPat
     assert.equal(snapshot.subagents[0].transcriptPath, childTranscriptFile);
   });
 });
+
+test('T3StateReader.listActiveThreads skips thread:delegated-task:* by default', async () => {
+  await withTempDir(async (dir) => {
+    const dbPath = path.join(dir, 'statev2.sqlite');
+    const providersDir = path.join(dir, 'providers', 'antigravity');
+    const db = createFixtureDb(dbPath);
+    db.exec(`
+      CREATE TABLE orchestration_v2_projection_threads (
+        thread_id TEXT PRIMARY KEY,
+        project_id TEXT,
+        title TEXT,
+        default_provider TEXT,
+        runtime_mode TEXT,
+        interaction_mode TEXT,
+        active_provider_thread_id TEXT,
+        created_at TEXT,
+        updated_at TEXT,
+        archived_at TEXT,
+        deleted_at TEXT,
+        payload_json TEXT,
+        provider_instance_id TEXT,
+        fork_run_ids_json TEXT
+      );
+      CREATE TABLE orchestration_v2_projection_provider_threads (
+        provider_thread_id TEXT PRIMARY KEY,
+        thread_id TEXT,
+        owner_node_id TEXT,
+        provider TEXT,
+        provider_session_id TEXT,
+        status TEXT,
+        first_run_ordinal INTEGER,
+        last_run_ordinal INTEGER,
+        updated_at TEXT,
+        payload_json TEXT,
+        driver TEXT,
+        provider_instance_id TEXT
+      );
+    `);
+
+    db.prepare(
+      `INSERT INTO orchestration_v2_projection_threads (thread_id, project_id, title, default_provider, updated_at) VALUES (?, ?, ?, ?, ?)`,
+    ).run('thread:user-main-1', 'proj-1', 'User Main Thread', 'antigravity', '2026-11-27T12:00:00Z');
+
+    db.prepare(
+      `INSERT INTO orchestration_v2_projection_threads (thread_id, project_id, title, default_provider, updated_at) VALUES (?, ?, ?, ?, ?)`,
+    ).run('thread:delegated-task:child-99', 'proj-1', 'Background Child', 'antigravity', '2026-11-27T12:05:00Z');
+    db.close();
+
+    const reader = new T3StateReader({ dbPath, providersDir, logger: { warn() {} } });
+    const active = reader.listActiveThreads({ limit: 10 });
+    assert.equal(active.length, 1);
+    assert.equal(active[0].thread_id, 'thread:user-main-1');
+
+    const withDelegated = reader.listActiveThreads({ limit: 10, includeDelegated: true });
+    assert.equal(withDelegated.length, 2);
+  });
+});

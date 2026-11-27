@@ -8,12 +8,33 @@ export const CONTEXT_CATEGORIES = Object.freeze([
   'System & Tools Overhead',
 ]);
 
+export const CATEGORY_COLORS = Object.freeze({
+  'User Messages': '#38bdf8',
+  'Assistant & Thinking': '#a78bfa',
+  'Tool Calls': '#fbbf24',
+  'Tool Results': '#34d399',
+  'Subagent Notifications': '#f472b6',
+  Checkpoints: '#fb923c',
+  'System & Tools Overhead': '#71717a',
+});
+
 function toNonNegativeInt(value) {
   const num = Number(value);
   return Number.isFinite(num) && num > 0 ? Math.floor(num) : 0;
 }
 
-function normalizeBreakdownEntry(entry, fallbackLabel = 'Main Agent') {
+export function formatTokenCount(value) {
+  const num = toNonNegativeInt(value);
+  if (num >= 1_000_000) {
+    return `${(num / 1_000_000).toFixed(1)}M`;
+  }
+  if (num >= 10_000) {
+    return `${(num / 1000).toFixed(1)}k`;
+  }
+  return String(num);
+}
+
+export function normalizeBreakdownEntry(entry, fallbackLabel = 'Main Agent') {
   const source = entry && typeof entry === 'object' ? entry : {};
   const rawCategories = source.categories && typeof source.categories === 'object' ? source.categories : {};
   const categories = {};
@@ -28,9 +49,37 @@ function normalizeBreakdownEntry(entry, fallbackLabel = 'Main Agent') {
   };
 }
 
+export function buildBreakdownStats(entry, fallbackLabel = 'Main Agent') {
+  const normalized = normalizeBreakdownEntry(entry, fallbackLabel);
+  const sumOfCategoryTokens = CONTEXT_CATEGORIES.reduce(
+    (sum, category) => sum + (normalized.categories[category] ?? 0),
+    0,
+  );
+  const denominator = Math.max(normalized.totalInputTokens, sumOfCategoryTokens);
+  const items = CONTEXT_CATEGORIES.map((category) => {
+    const tokens = normalized.categories[category] ?? 0;
+    const pct = denominator > 0 ? Math.min(100, Math.round((tokens / denominator) * 100)) : 0;
+    const widthPct = denominator > 0 ? Math.min(100, (tokens / denominator) * 100) : 0;
+    return {
+      category,
+      tokens,
+      pct,
+      widthPct,
+      color: CATEGORY_COLORS[category] ?? '#71717a',
+    };
+  });
+  return {
+    label: normalized.label,
+    totalInputTokens: normalized.totalInputTokens,
+    sumOfCategoryTokens,
+    denominator,
+    items,
+  };
+}
+
 /**
  * Shadow DOM Context Breakdown surface rendering the 7 exact categories
- * (ADR-0002) with a main-agent / subagent switcher.
+ * (ADR-0002) with a segmented bar, 2-column legend, and agent switcher.
  */
 export class ContextBreakdownSurface {
   #document;
@@ -40,6 +89,7 @@ export class ContextBreakdownSurface {
   #toggleEl = null;
   #switcherEl = null;
   #totalEl = null;
+  #barEl = null;
   #rowsEl = null;
   #open = false;
   #selectedAgentId = 'main';
@@ -56,14 +106,25 @@ export class ContextBreakdownSurface {
 
     const style = this.#document.createElement('style');
     style.textContent = `
-      :host { display: inline-flex; align-items: center; position: relative; margin-right: 6px !important; z-index: 50; -webkit-app-region: no-drag !important; app-region: no-drag !important; font-family: system-ui, sans-serif; font-size: 12px; color: var(--foreground, #e4e4e7); flex-shrink: 0; }
-      .context-toggle { box-sizing: border-box; display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 999px; -webkit-app-region: no-drag; app-region: no-drag; background: rgba(255, 255, 255, 0.04); color: var(--foreground, #e4e4e7); border: 1px solid rgba(255, 255, 255, 0.09); font-size: 11px; font-variant-numeric: tabular-nums; cursor: pointer; white-space: nowrap; transition: background 120ms ease, border-color 120ms ease; }
-      .context-toggle:hover { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.16); }
-      .breakdown-panel { position: fixed; top: 48px; right: 160px; width: 360px; max-height: 70vh; overflow-y: auto; z-index: 80; pointer-events: auto; padding: 8px 10px; border-radius: 8px; background: var(--popover, rgba(24, 24, 27, 0.94)); color: var(--foreground, #e4e4e7); border: 1px solid var(--border, rgba(255, 255, 255, 0.12)); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); backdrop-filter: blur(8px); }
+      :host { display: inline-flex; align-items: center; position: relative; margin-right: 6px !important; z-index: 50; -webkit-app-region: no-drag !important; app-region: no-drag !important; font-family: system-ui, -apple-system, sans-serif; font-size: 12px; color: var(--foreground, #e4e4e7); flex-shrink: 0; }
+      .context-toggle { box-sizing: border-box; display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 999px; -webkit-app-region: no-drag !important; app-region: no-drag !important; background: rgba(24, 24, 27, 0.85); color: var(--foreground, #e4e4e7); border: 1px solid rgba(255, 255, 255, 0.1); font-size: 11px; font-weight: 500; font-variant-numeric: tabular-nums; cursor: pointer; white-space: nowrap; transition: background 120ms ease, border-color 120ms ease; }
+      .context-toggle:hover { background: rgba(39, 39, 42, 0.95); border-color: rgba(255, 255, 255, 0.2); }
+      .breakdown-panel { position: fixed; top: 48px; right: 160px; width: 390px; max-height: 75vh; overflow-y: auto; z-index: 80; pointer-events: auto; padding: 12px 14px; border-radius: 12px; background: #18181b; color: #e4e4e7; border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55); }
       [data-open="false"] .breakdown-panel { display: none; }
-      .breakdown-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
-      .breakdown-row { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; }
-      select { background: var(--secondary, rgba(255, 255, 255, 0.08)); color: var(--foreground, #e4e4e7); border: 1px solid var(--border, rgba(255, 255, 255, 0.14)); border-radius: 6px; padding: 2px 6px; font-size: 11px; }
+      .breakdown-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+      .breakdown-title-group { display: flex; align-items: center; gap: 8px; min-width: 0; }
+      .breakdown-title { font-size: 12px; font-weight: 600; color: #f4f4f5; white-space: nowrap; }
+      .breakdown-total { font-size: 11px; font-weight: 500; color: #a1a1aa; font-variant-numeric: tabular-nums; margin-left: auto; white-space: nowrap; }
+      select { background: #27272a; color: #e4e4e7; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 6px; padding: 3px 8px; font-size: 11px; outline: none; cursor: pointer; max-width: 160px; }
+      select:hover { border-color: rgba(255, 255, 255, 0.24); }
+      .segmented-bar { display: flex; width: 100%; height: 8px; border-radius: 999px; overflow: hidden; background: rgba(255, 255, 255, 0.08); margin-bottom: 10px; gap: 1px; }
+      .segmented-segment { height: 100%; min-width: 2px; transition: width 160ms ease; }
+      .breakdown-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; }
+      .breakdown-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 2px 0; min-width: 0; font-size: 11px; }
+      .category-label { display: inline-flex; align-items: center; gap: 6px; min-width: 0; color: #d4d4d8; }
+      .category-dot { width: 7px; height: 7px; border-radius: 999px; flex-shrink: 0; }
+      .category-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .category-value { color: #a1a1aa; font-variant-numeric: tabular-nums; white-space: nowrap; flex-shrink: 0; }
     `;
 
     const root = this.#document.createElement('div');
@@ -86,8 +147,12 @@ export class ContextBreakdownSurface {
     const header = this.#document.createElement('div');
     header.className = 'breakdown-header';
 
+    const titleGroup = this.#document.createElement('div');
+    titleGroup.className = 'breakdown-title-group';
+
     const title = this.#document.createElement('span');
     title.setAttribute('data-role', 'breakdown-title');
+    title.className = 'breakdown-title';
     title.textContent = 'Context Breakdown';
 
     const switcherEl = this.#document.createElement('select');
@@ -100,14 +165,22 @@ export class ContextBreakdownSurface {
 
     const totalEl = this.#document.createElement('div');
     totalEl.setAttribute('data-role', 'breakdown-total');
+    totalEl.className = 'breakdown-total';
+
+    const barEl = this.#document.createElement('div');
+    barEl.setAttribute('data-role', 'breakdown-bar');
+    barEl.className = 'segmented-bar';
 
     const rowsEl = this.#document.createElement('div');
     rowsEl.setAttribute('data-role', 'breakdown-rows');
+    rowsEl.className = 'breakdown-grid';
 
-    header.appendChild(title);
-    header.appendChild(switcherEl);
+    titleGroup.appendChild(title);
+    titleGroup.appendChild(switcherEl);
+    header.appendChild(titleGroup);
+    header.appendChild(totalEl);
     panel.appendChild(header);
-    panel.appendChild(totalEl);
+    panel.appendChild(barEl);
     panel.appendChild(rowsEl);
     root.appendChild(toggleEl);
     root.appendChild(panel);
@@ -119,6 +192,7 @@ export class ContextBreakdownSurface {
     this.#toggleEl = toggleEl;
     this.#switcherEl = switcherEl;
     this.#totalEl = totalEl;
+    this.#barEl = barEl;
     this.#rowsEl = rowsEl;
     this.#syncOpen();
   }
@@ -158,7 +232,7 @@ export class ContextBreakdownSurface {
   }
 
   #renderFromSnapshot() {
-    if (!this.#shadowRoot || !this.#switcherEl || !this.#totalEl || !this.#rowsEl) {
+    if (!this.#shadowRoot || !this.#switcherEl || !this.#totalEl || !this.#barEl || !this.#rowsEl) {
       return;
     }
 
@@ -181,28 +255,49 @@ export class ContextBreakdownSurface {
     this.#switcherEl.value = this.#selectedAgentId;
 
     const active = breakdowns.get(this.#selectedAgentId) ?? normalizeBreakdownEntry(null);
-    const total = active.totalInputTokens;
-    this.#totalEl.textContent = `Total: ${total} tokens`;
+    const stats = buildBreakdownStats(active);
+    this.#totalEl.textContent = `Total: ${formatTokenCount(stats.totalInputTokens)}`;
 
+    this.#barEl.innerHTML = '';
     this.#rowsEl.innerHTML = '';
-    for (const category of CONTEXT_CATEGORIES) {
-      const tokens = active.categories[category] ?? 0;
-      const pct = total > 0 ? Math.round((tokens / total) * 100) : 0;
+
+    for (const item of stats.items) {
+      if (item.widthPct > 0) {
+        const seg = this.#document.createElement('div');
+        seg.className = 'segmented-segment';
+        seg.setAttribute('data-role', 'breakdown-segment');
+        seg.setAttribute('data-segment-category', item.category);
+        seg.style.width = `${item.widthPct.toFixed(2)}%`;
+        seg.style.background = item.color;
+        seg.title = `${item.category}: ${formatTokenCount(item.tokens)} (${item.pct}%)`;
+        this.#barEl.appendChild(seg);
+      }
 
       const row = this.#document.createElement('div');
       row.className = 'breakdown-row';
       row.setAttribute('data-role', 'breakdown-row');
-      row.setAttribute('data-category', category);
+      row.setAttribute('data-category', item.category);
+
+      const labelWrap = this.#document.createElement('span');
+      labelWrap.className = 'category-label';
+
+      const dotEl = this.#document.createElement('span');
+      dotEl.className = 'category-dot';
+      dotEl.style.background = item.color;
 
       const nameEl = this.#document.createElement('span');
       nameEl.setAttribute('data-role', 'category-name');
-      nameEl.textContent = category;
+      nameEl.className = 'category-name';
+      nameEl.textContent = item.category;
 
       const valueEl = this.#document.createElement('span');
       valueEl.setAttribute('data-role', 'category-value');
-      valueEl.textContent = `${tokens} (${pct}%)`;
+      valueEl.className = 'category-value';
+      valueEl.textContent = `${formatTokenCount(item.tokens)} (${item.pct}%)`;
 
-      row.appendChild(nameEl);
+      labelWrap.appendChild(dotEl);
+      labelWrap.appendChild(nameEl);
+      row.appendChild(labelWrap);
       row.appendChild(valueEl);
       this.#rowsEl.appendChild(row);
     }

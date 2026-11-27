@@ -356,6 +356,41 @@ test('ContextBreakdownSurface renders all 7 exact categories and switches betwee
   assert.match(subToolResults.textContent, /30%/);
 });
 
+test('ContextBreakdownSurface clamps category percentages to <= 100% even when categories exceed totalInputTokens', () => {
+  const { document } = createMockDom();
+  const host = document.createElement('div');
+  document.body.appendChild(host);
+  const shadowRoot = host.attachShadow({ mode: 'open' });
+
+  const surface = new ContextBreakdownSurface({ document });
+  surface.mount(shadowRoot);
+
+  surface.update({
+    contextBreakdown: {
+      totalInputTokens: 100,
+      categories: {
+        'User Messages': 50,
+        'Assistant & Thinking': 1018,
+        'Tool Calls': 200,
+        'Tool Results': 0,
+        'Subagent Notifications': 0,
+        Checkpoints: 0,
+        'System & Tools Overhead': 0,
+      },
+    },
+  });
+
+  const rows = shadowRoot.querySelectorAll('[data-role="breakdown-row"]');
+  assert.equal(rows.length, 7);
+  for (const row of rows) {
+    const valText = row.querySelector('[data-role="category-value"]').textContent;
+    const match = /\((\d+)%\)/.exec(valText);
+    assert.ok(match, `Expected percentage in "${valText}"`);
+    const pct = Number(match[1]);
+    assert.ok(pct >= 0 && pct <= 100, `Expected pct <= 100, got ${pct}% in "${valText}"`);
+  }
+});
+
 test('UnifiedTimelineSurface renders turn rail, per-agent filter, merged steps, and inline running-task expansion', () => {
   const { document, MockEvent } = createMockDom();
   const host = document.createElement('div');

@@ -307,11 +307,15 @@ export class T3StateReader {
     }
   }
 
-  listActiveThreads({ limit = 50 } = {}) {
+  listActiveThreads({ limit = 50, includeDelegated = false } = {}) {
     const db = this.#openReadOnly();
     if (!db) {
       return [];
     }
+
+    const delegatedFilter = includeDelegated
+      ? ''
+      : ` AND t.thread_id NOT LIKE 'thread:delegated-task:%'`;
 
     try {
       if (hasTable(db, 'orchestration_v2_projection_threads')) {
@@ -335,7 +339,7 @@ export class T3StateReader {
                       ORDER BY pt2.updated_at DESC
                       LIMIT 1)
                    )
-                 WHERE t.deleted_at IS NULL AND t.archived_at IS NULL
+                 WHERE t.deleted_at IS NULL AND t.archived_at IS NULL${delegatedFilter}
                  ORDER BY t.updated_at DESC
                  LIMIT ?`,
               )
@@ -347,7 +351,7 @@ export class T3StateReader {
                         p.title AS project_title
                  FROM orchestration_v2_projection_threads t
                  LEFT JOIN projection_projects p ON p.project_id = t.project_id
-                 WHERE t.deleted_at IS NULL AND t.archived_at IS NULL
+                 WHERE t.deleted_at IS NULL AND t.archived_at IS NULL${delegatedFilter}
                  ORDER BY t.updated_at DESC
                  LIMIT ?`,
               )
@@ -389,7 +393,7 @@ export class T3StateReader {
            FROM projection_threads t
            LEFT JOIN projection_projects p ON p.project_id = t.project_id
            LEFT JOIN projection_thread_sessions s ON s.thread_id = t.thread_id
-           WHERE t.deleted_at IS NULL AND t.archived_at IS NULL
+           WHERE t.deleted_at IS NULL AND t.archived_at IS NULL${delegatedFilter}
            ORDER BY t.updated_at DESC
            LIMIT ?`,
         )
