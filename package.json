@@ -1,0 +1,13 @@
+{
+  "name": "t3-agy-monitor",
+  "version": "0.1.0",
+  "description": "Live session monitoring, context analysis, and update notification for T3 Code Desktop sessions running on the Antigravity provider.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {}
+}
